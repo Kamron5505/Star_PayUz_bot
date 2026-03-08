@@ -12,14 +12,35 @@ import config
 import database
 import keyboards
 from translations import get_text, get_text_simple
-from universal_messages import (
-    get_universal_welcome,
-    get_universal_service_selected,
-    get_universal_payment_info,
-    get_universal_order_accepted,
-    get_universal_help,
-    get_universal_category_name
+from premium_messages import (
+    get_premium_welcome,
+    get_premium_service_selected,
+    get_premium_payment_info,
+    get_premium_order_accepted,
+    get_premium_help,
+    get_premium_category_name
 )
+
+# Вспомогательная функция для безопасного редактирования сообщений
+async def safe_edit_message(callback, text, reply_markup=None, parse_mode="HTML"):
+    """Безопасно редактировать сообщение (работает с текстом и фото)"""
+    # Сначала пробуем отредактировать текст (для текстовых сообщений)
+    try:
+        await callback.message.edit_text(text=text, reply_markup=reply_markup, parse_mode=parse_mode)
+        return
+    except Exception as e1:
+        # Если не получилось, пробуем отредактировать подпись (для сообщений с фото)
+        try:
+            await callback.message.edit_caption(caption=text, reply_markup=reply_markup, parse_mode=parse_mode)
+            return
+        except Exception as e2:
+            # Если и это не получилось, удаляем старое сообщение и отправляем новое
+            logging.error(f"Failed to edit message: {e1}, {e2}")
+            try:
+                await callback.message.delete()
+            except:
+                pass
+            await callback.message.answer(text, reply_markup=reply_markup, parse_mode=parse_mode)
 
 logging.basicConfig(level=logging.INFO)
 
@@ -37,6 +58,8 @@ class OrderStates(StatesGroup):
     waiting_for_roblox_password = State()
     waiting_for_stars_count = State()
     waiting_for_channel_link = State()  # Для бустов - ссылка на канал
+    waiting_for_payment_confirmation = State()  # Для подтверждения оплаты Stars
+    waiting_for_exact_amount = State()  # Для ввода точной суммы
 
 
 def format_as_quote(text, lang="uz"):
@@ -132,7 +155,7 @@ async def cmd_start(message: types.Message):
         return
     
     # Приветствие для подписанных
-    welcome_text = get_universal_welcome(user_mention, lang)
+    welcome_text = get_premium_welcome(user_mention, lang)
     
     photo_sent = False
     try:
@@ -176,12 +199,12 @@ async def language_selected(callback: types.CallbackQuery):
             [InlineKeyboardButton(text="✅ Obunani tekshirish / Проверить", callback_data="check_subscription")]
         ])
         
-        await callback.message.edit_caption(caption=sub_text, reply_markup=keyboard, parse_mode="HTML")
+        await safe_edit_message(callback, sub_text, reply_markup=keyboard)
     else:
         # Показываем продающее приветствие
         await callback.answer(get_text_simple(lang, "language_changed"))
         welcome_text = get_premium_welcome(user_mention, lang)
-        await callback.message.edit_caption(caption=welcome_text, reply_markup=keyboards.main_menu(lang), parse_mode="HTML")
+        await safe_edit_message(callback, welcome_text, reply_markup=keyboards.main_menu(lang))
 
 @dp.callback_query(F.data == "check_subscription")
 async def check_sub_callback(callback: types.CallbackQuery):
@@ -206,7 +229,7 @@ async def check_sub_callback(callback: types.CallbackQuery):
 @dp.callback_query(F.data == "change_language")
 async def change_language(callback: types.CallbackQuery):
     lang = database.get_user_language(callback.from_user.id)
-    await callback.message.edit_caption(caption=get_text_simple(lang, "choose_language"), reply_markup=keyboards.language_keyboard(), parse_mode="HTML")
+    await safe_edit_message(callback, get_text_simple(lang), reply_markup=keyboards.language_keyboard(), parse_mode="HTML")
 
 @dp.callback_query(F.data.startswith("service_"))
 async def service_selected(callback: types.CallbackQuery, state: FSMContext):
@@ -238,7 +261,7 @@ async def service_selected(callback: types.CallbackQuery, state: FSMContext):
             [InlineKeyboardButton(text="◀️ Orqaga / Назад", callback_data="back_to_menu")]
         ])
         
-        await callback.message.edit_caption(caption=text, reply_markup=keyboard, parse_mode="HTML")
+        await safe_edit_message(callback, text, reply_markup=keyboard)
         await callback.answer()
         return
     
@@ -275,13 +298,13 @@ async def service_selected(callback: types.CallbackQuery, state: FSMContext):
                 f"⚠️ <b>Важно:</b> Stars или подарок будет отправлен на этот аккаунт"
             )
         
-        await callback.message.edit_caption(caption=text, parse_mode="HTML")
+        await safe_edit_message(callback, text)
         await state.set_state(OrderStates.waiting_for_username)
         await state.update_data(service=service, service_name=service_name, price=price)
     else:
         # Для остальных услуг - сразу к оплате
         text = get_premium_service_selected(service_name, price, lang)
-        await callback.message.edit_caption(caption=text, reply_markup=keyboards.payment_methods(), parse_mode="HTML")
+        await safe_edit_message(callback, text, reply_markup=keyboards.payment_methods())
         await state.update_data(service=service, service_name=service_name, price=price)
     
     await callback.answer()
@@ -322,7 +345,7 @@ async def premium_period_selected(callback: types.CallbackQuery, state: FSMConte
             f"⚠️ <b>Важно:</b> На номер придет код для входа в аккаунт"
         )
     
-    await callback.message.edit_caption(caption=text, parse_mode="HTML")
+    await safe_edit_message(callback, text)
     await state.set_state(OrderStates.waiting_for_phone_number)
     await state.update_data(
         service=f"premium_{period}",
@@ -440,7 +463,7 @@ async def username_received(message: types.Message, state: FSMContext):
         await message.answer(text, parse_mode="HTML")
         await state.set_state(OrderStates.waiting_for_message)
     else:
-        # Для Stars и других услуг - сразу к оплате
+        # Для Stars и других услуг
         data = await state.get_data()
         service_name = data.get('service_name')
         price = data.get('price')
@@ -448,46 +471,156 @@ async def username_received(message: types.Message, state: FSMContext):
         stars_count = data.get('stars_count', 0)
         
         if category == "stars" and stars_count > 0:
-            # Для Stars показываем детальную информацию
+            # Для Stars показываем сводку заказа с кнопками подтверждения
+            import random
+            import string
+            order_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+            
+            await state.update_data(order_id=order_id)
+            
             if lang == "uz":
                 text = (
-                    f"✅ <b>Username qabul qilindi!</b>\n\n"
-                    f"👤 <b>Username:</b> @{username}\n"
-                    f"⭐️ <b>Stars soni:</b> {stars_count} ta\n"
-                    f"� <b>1 star narxi:</b> 320 so'm\n"
-                    f"💰 <b>Jami summa:</b> <b>{price:,} so'm</b>\n\n"
-                    f"👇 <b>To'lov usulini tanlang:</b>"
+                    f"<tg-emoji emoji-id=\"5445353829304387411\">💳</tg-emoji> <b>To'lov ma'lumotlari</b>\n\n"
+                    f"<code><tg-emoji emoji-id=\"5208858619155594626\">▪️</tg-emoji>Turi: <tg-emoji emoji-id=\"5938152874994308605\">⭐️</tg-emoji> Telegram Stars</code>\n"
+                    f"<code><tg-emoji emoji-id=\"5208858619155594626\">▪️</tg-emoji>Username: @{username}</code>\n"
+                    f"<code><tg-emoji emoji-id=\"5208858619155594626\">▪️</tg-emoji>Soni: {stars_count}</code>\n"
+                    f"<code><tg-emoji emoji-id=\"5208858619155594626\">▪️</tg-emoji>Summa: {price:,}</code>\n"
+                    f"<code><tg-emoji emoji-id=\"5208858619155594626\">▪️</tg-emoji>ID: [{order_id}]</code>\n\n"
+                    f"<tg-emoji emoji-id=\"5316554554735607106\">⚠️</tg-emoji> <b>Ma'lumotlarni tekshirib, to'lovni tasdiqlashingiz bilan buyurtma sizga avtomatik yuboriladi, agar to'lov 5 daqiqa ichida amalga oshirilmasa, buyurtma avtomatik ravishda bekor qilinadi.</b>"
                 )
             else:
                 text = (
-                    f"✅ <b>Username принят!</b>\n\n"
-                    f"👤 <b>Username:</b> @{username}\n"
-                    f"⭐️ <b>Количество stars:</b> {stars_count} шт\n"
-                    f"💵 <b>Цена 1 star:</b> 320 сум\n"
-                    f"💰 <b>Общая сумма:</b> <b>{price:,} сум</b>\n\n"
-                    f"👇 <b>Выберите способ оплаты:</b>"
+                    f"<tg-emoji emoji-id=\"5445353829304387411\">💳</tg-emoji> <b>Информация об оплате</b>\n\n"
+                    f"<code><tg-emoji emoji-id=\"5208858619155594626\">▪️</tg-emoji>Тип: <tg-emoji emoji-id=\"5938152874994308605\">⭐️</tg-emoji> Telegram Stars</code>\n"
+                    f"<code><tg-emoji emoji-id=\"5208858619155594626\">▪️</tg-emoji>Username: @{username}</code>\n"
+                    f"<code><tg-emoji emoji-id=\"5208858619155594626\">▪️</tg-emoji>Количество: {stars_count}</code>\n"
+                    f"<code><tg-emoji emoji-id=\"5208858619155594626\">▪️</tg-emoji>Сумма: {price:,}</code>\n"
+                    f"<code><tg-emoji emoji-id=\"5208858619155594626\">▪️</tg-emoji>ID: [{order_id}]</code>\n\n"
+                    f"<tg-emoji emoji-id=\"5316554554735607106\">⚠️</tg-emoji> <b>Проверьте данные и подтвердите оплату. Заказ будет автоматически отправлен вам. Если оплата не будет произведена в течение 5 минут, заказ будет автоматически отменен.</b>"
                 )
+            
+            # Создаем кнопки подтверждения и отмены
+            keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                [
+                    InlineKeyboardButton(text="✅ Tasdiqlash" if lang == "uz" else "✅ Подтвердить", callback_data="confirm_stars_payment"),
+                    InlineKeyboardButton(text="❌ Bekor qilish" if lang == "uz" else "❌ Отменить", callback_data="cancel_stars_payment")
+                ]
+            ])
+            
+            sent_message = await message.answer(text, reply_markup=keyboard, parse_mode="HTML")
+            await state.update_data(confirmation_message_id=sent_message.message_id)
+            await state.set_state(OrderStates.waiting_for_payment_confirmation)
+            
+            # Запускаем таймер на 5 минут
+            asyncio.create_task(cancel_order_after_timeout(message.from_user.id, order_id, state, 300))
+            
         else:
-            # Для других услуг
+            # Для других услуг - старая логика
             if lang == "uz":
                 text = (
-                    f"✅ <b>Username qabul qilindi!</b>\n\n"
-                    f"👤 <b>Username:</b> @{username}\n"
-                    f"�🛍️ <b>Xizmat:</b> {service_name}\n"
-                    f"💰 <b>Summa:</b> <b>{price:,} UZS</b>\n\n"
-                    f"👇 <b>To'lov usulini tanlang:</b>"
+                    f"<tg-emoji emoji-id=\"5456390099958773299\">✅</tg-emoji> <b>Username qabul qilindi!</b>\n\n"
+                    f"<tg-emoji emoji-id=\"5456390099958773299\">👤</tg-emoji> <b>Username:</b> @{username}\n"
+                    f"<tg-emoji emoji-id=\"5458488840022933066\">🛍️</tg-emoji> <b>Xizmat:</b> {service_name}\n"
+                    f"<tg-emoji emoji-id=\"5456390099958773299\">💰</tg-emoji> <b>Summa:</b> <b>{price:,} UZS</b>\n\n"
+                    f"<tg-emoji emoji-id=\"6269085886177087845\">👇</tg-emoji> <b>To'lov usulini tanlang:</b>"
                 )
             else:
                 text = (
-                    f"✅ <b>Username принят!</b>\n\n"
-                    f"👤 <b>Username:</b> @{username}\n"
-                    f"🛍️ <b>Услуга:</b> {service_name}\n"
-                    f"💰 <b>Сумма:</b> <b>{price:,} UZS</b>\n\n"
-                    f"👇 <b>Выберите способ оплаты:</b>"
+                    f"<tg-emoji emoji-id=\"5456390099958773299\">✅</tg-emoji> <b>Username принят!</b>\n\n"
+                    f"<tg-emoji emoji-id=\"5456390099958773299\">👤</tg-emoji> <b>Username:</b> @{username}\n"
+                    f"<tg-emoji emoji-id=\"5458488840022933066\">🛍️</tg-emoji> <b>Услуга:</b> {service_name}\n"
+                    f"<tg-emoji emoji-id=\"5456390099958773299\">💰</tg-emoji> <b>Сумма:</b> <b>{price:,} UZS</b>\n\n"
+                    f"<tg-emoji emoji-id=\"6269085886177087845\">👇</tg-emoji> <b>Выберите способ оплаты:</b>"
                 )
+            
+            await message.answer(text, reply_markup=keyboards.payment_methods(), parse_mode="HTML")
+            await state.set_state(None)
+
+# Функция для автоматической отмены заказа через 5 минут
+async def cancel_order_after_timeout(user_id, order_id, state: FSMContext, timeout_seconds):
+    """Отменить заказ если пользователь не подтвердил оплату за указанное время"""
+    await asyncio.sleep(timeout_seconds)
+    
+    # Проверяем, все ли еще ждем подтверждения
+    current_state = await state.get_state()
+    if current_state == OrderStates.waiting_for_payment_confirmation:
+        data = await state.get_data()
+        stored_order_id = data.get('order_id')
         
-        await message.answer(text, reply_markup=keyboards.payment_methods(), parse_mode="HTML")
-        await state.set_state(None)
+        # Проверяем что это тот же заказ
+        if stored_order_id == order_id:
+            lang = database.get_user_language(user_id)
+            
+            if lang == "uz":
+                text = (
+                    f"<tg-emoji emoji-id=\"5366476626064324615\">❌</tg-emoji> <b>To'lov vaqtda amalga oshirilmagani sababli buyurtma avtomatik ravishda bekor qilindi.</b>\n\n"
+                    f"Agar xohlasangiz, buyurtmani qaytadan yaratishingiz mumkin."
+                )
+            else:
+                text = (
+                    f"<tg-emoji emoji-id=\"5366476626064324615\">❌</tg-emoji> <b>Заказ автоматически отменен из-за неоплаты в срок.</b>\n\n"
+                    f"Если хотите, вы можете создать заказ заново."
+                )
+            
+            await bot.send_message(user_id, text, parse_mode="HTML")
+            await state.clear()
+
+@dp.callback_query(F.data == "confirm_stars_payment")
+async def confirm_stars_payment(callback: types.CallbackQuery, state: FSMContext):
+    """Подтверждение оплаты Stars - показываем карту и просим отправить чек"""
+    lang = database.get_user_language(callback.from_user.id)
+    data = await state.get_data()
+    price = data.get('price', 0)
+    username = data.get('username', '')
+    
+    if lang == "uz":
+        text = (
+            f"<tg-emoji emoji-id=\"5445353829304387411\">💳</tg-emoji> <tg-emoji emoji-id=\"5397961648331832851\">💳</tg-emoji> <code>9860 1801 0171 2578</code>\n"
+            f"<tg-emoji emoji-id=\"5327856104045038161\">👤</tg-emoji> <b>Isxakova A.</b>\n\n"
+            f"Quyidagi kartaga <b>{price:,} so'm</b> yuboring va chekini tashlang..."
+        )
+    else:
+        text = (
+            f"<tg-emoji emoji-id=\"5445353829304387411\">💳</tg-emoji> <tg-emoji emoji-id=\"5397961648331832851\">💳</tg-emoji> <code>9860 1801 0171 2578</code>\n"
+            f"<tg-emoji emoji-id=\"5327856104045038161\">�</tg-emoji> <b>Isxakova A.</b>\n\n"
+            f"Отправьте <b>{price:,} сум</b> на эту карту и отправьте чек..."
+        )
+    
+    # Удаляем сообщение с кнопками
+    try:
+        await callback.message.delete()
+    except:
+        pass
+    
+    # Отправляем БЕЗ картинки, только текст
+    await bot.send_message(callback.from_user.id, text, parse_mode="HTML")
+    
+    await state.set_state(OrderStates.waiting_for_payment_proof)
+    await callback.answer()
+
+@dp.callback_query(F.data == "cancel_stars_payment")
+async def cancel_stars_payment(callback: types.CallbackQuery, state: FSMContext):
+    """Отмена оплаты Stars"""
+    lang = database.get_user_language(callback.from_user.id)
+    
+    if lang == "uz":
+        text = (
+            f"<tg-emoji emoji-id=\"5366476626064324615\">❌</tg-emoji> <b>Buyurtma bekor qilindi.</b>\n\n"
+            f"Agar xohlasangiz, buyurtmani qaytadan yaratishingiz mumkin."
+        )
+    else:
+        text = (
+            f"<tg-emoji emoji-id=\"5366476626064324615\">❌</tg-emoji> <b>Заказ отменен.</b>\n\n"
+            f"Если хотите, вы можете создать заказ заново."
+        )
+    
+    try:
+        await callback.message.edit_text(text, parse_mode="HTML")
+    except:
+        await callback.message.answer(text, parse_mode="HTML")
+    
+    await state.clear()
+    await callback.answer()
 
 @dp.message(OrderStates.waiting_for_message)
 async def message_received(message: types.Message, state: FSMContext):
@@ -578,7 +711,7 @@ async def anonymous_selected(callback: types.CallbackQuery, state: FSMContext):
             f"👇 <b>Выберите способ оплаты:</b>"
         )
     
-    await callback.message.edit_caption(caption=text, reply_markup=keyboards.payment_methods(), parse_mode="HTML")
+    await safe_edit_message(callback, text, reply_markup=keyboards.payment_methods())
     await state.set_state(None)
     await callback.answer()
 
@@ -715,7 +848,7 @@ async def stars_count_received(message: types.Message, state: FSMContext):
         return
     
     # Рассчитываем сумму
-    price_per_star = 320
+    price_per_star = 270
     total_price = stars_count * price_per_star
     
     # Сохраняем количество и общую сумму
@@ -729,19 +862,19 @@ async def stars_count_received(message: types.Message, state: FSMContext):
     
     if lang == "uz":
         text = (
-            f"💵 <b>1 star narxi:</b> 320 so'm\n"
-            f"⭐️ <b>{stars_count} stars</b> = <b>{total_price:,} so'm</b> bo'ladi\n\n"
-            f"👤 <b>Qaysi profilga olasiz? Username yozing...</b> ✍️\n\n"
+            f"<tg-emoji emoji-id=\"6037408065966312773\">💰</tg-emoji> <b>1 star narxi:</b> <code>270 so'm</code>\n"
+            f"<tg-emoji emoji-id=\"5936259309812846957\">🌟</tg-emoji> <b>{stars_count} stars</b> = <code>{total_price:,} so'm</code> bo'ladi\n\n"
+            f"<tg-emoji emoji-id=\"6037408065966312773\">👤</tg-emoji> <b>Qaysi profilga olasiz? Username yozing...</b> <tg-emoji emoji-id=\"6037408065966312773\">✍️</tg-emoji>\n\n"
             f"Format: @username yoki username\n\n"
-            f"⚠️ <b>Muhim:</b> Stars shu akkauntga yuboriladi"
+            f"<tg-emoji emoji-id=\"6037408065966312773\">⚠️</tg-emoji> <b>Muhim:</b> Stars shu akkauntga yuboriladi"
         )
     else:
         text = (
-            f"💵 <b>Цена 1 star:</b> 320 сум\n"
-            f"⭐️ <b>{stars_count} stars</b> = <b>{total_price:,} сум</b>\n\n"
-            f"👤 <b>На какой профиль покупаете? Напишите username...</b> ✍️\n\n"
+            f"<tg-emoji emoji-id=\"6037408065966312773\">💰</tg-emoji> <b>Цена 1 star:</b> <code>270 сум</code>\n"
+            f"<tg-emoji emoji-id=\"5936259309812846957\">🌟</tg-emoji> <b>{stars_count} stars</b> = <code>{total_price:,} сум</code>\n\n"
+            f"<tg-emoji emoji-id=\"6037408065966312773\">👤</tg-emoji> <b>На какой профиль покупаете? Напишите username...</b> <tg-emoji emoji-id=\"6037408065966312773\">✍️</tg-emoji>\n\n"
             f"Формат: @username или username\n\n"
-            f"⚠️ <b>Важно:</b> Stars будет отправлен на этот аккаунт"
+            f"<tg-emoji emoji-id=\"6037408065966312773\">⚠️</tg-emoji> <b>Важно:</b> Stars будет отправлен на этот аккаунт"
         )
     
     await message.answer(text, parse_mode="HTML")
@@ -776,8 +909,8 @@ async def payment_selected(callback: types.CallbackQuery, state: FSMContext):
         if category == "stars" and stars_count > 0:
             payment_info += (
                 f"<tg-emoji emoji-id=\"5936259309812846957\">🌟</tg-emoji> <b>Stars soni:</b> {stars_count} ta\n"
-                f"<tg-emoji emoji-id=\"5456390099958773299\">💰</tg-emoji> <b>1 star narxi:</b> 320 so'm\n"
-                f"<tg-emoji emoji-id=\"5456390099958773299\">💰</tg-emoji> <b>Jami summa:</b> <b>{price:,} so'm</b>\n"
+                f"<tg-emoji emoji-id=\"6037408065966312773\">💰</tg-emoji> <b>1 star narxi:</b> 270 so'm\n"
+                f"<tg-emoji emoji-id=\"6037408065966312773\">💰</tg-emoji> <b>Jami summa:</b> <b>{price:,} so'm</b>\n"
             )
         else:
             payment_info += f"<tg-emoji emoji-id=\"5456390099958773299\">💰</tg-emoji> <b>To'lov summasi:</b> <b>{price:,} UZS</b>\n"
@@ -812,8 +945,8 @@ async def payment_selected(callback: types.CallbackQuery, state: FSMContext):
         if category == "stars" and stars_count > 0:
             payment_info += (
                 f"<tg-emoji emoji-id=\"5936259309812846957\">🌟</tg-emoji> <b>Количество stars:</b> {stars_count} шт\n"
-                f"<tg-emoji emoji-id=\"5456390099958773299\">�</tg-emoji> <b>Цена 1 star:</b> 320 сум\n"
-                f"<tg-emoji emoji-id=\"5456390099958773299\">💰</tg-emoji> <b>Общая сумма:</b> <b>{price:,} сум</b>\n"
+                f"<tg-emoji emoji-id=\"6037408065966312773\">💰</tg-emoji> <b>Цена 1 star:</b> 270 сум\n"
+                f"<tg-emoji emoji-id=\"6037408065966312773\">💰</tg-emoji> <b>Общая сумма:</b> <b>{price:,} сум</b>\n"
             )
         else:
             payment_info += f"<tg-emoji emoji-id=\"5456390099958773299\">💰</tg-emoji> <b>Сумма к оплате:</b> <b>{price:,} UZS</b>\n"
@@ -851,7 +984,7 @@ async def payment_selected(callback: types.CallbackQuery, state: FSMContext):
         else:
             # если картинки нет – просто обновляем подпись/текст
             try:
-                await callback.message.edit_caption(caption=payment_info, parse_mode="HTML")
+                await safe_edit_message(callback, payment_info)
             except Exception:
                 await callback.message.answer(payment_info, parse_mode="HTML")
     except Exception as e:
@@ -896,7 +1029,7 @@ async def payment_proof_received(message: types.Message, state: FSMContext):
             # Для Stars добавляем информацию о количестве
             if category == "stars" and stars_count > 0:
                 admin_caption += f"⭐️ <b>Stars soni:</b> {stars_count} ta\n"
-                admin_caption += f"💵 <b>1 star narxi:</b> 320 so'm\n"
+                admin_caption += f"💵 <b>1 star narxi:</b> 270 so'm\n"
                 admin_caption += f"💰 <b>Jami summa:</b> {price:,} so'm\n"
             else:
                 admin_caption += f"💰 {price:,} UZS\n"
@@ -939,7 +1072,7 @@ async def back_to_menu_handler(callback: types.CallbackQuery):
     user_mention = f"@{callback.from_user.username}" if callback.from_user.username else callback.from_user.first_name
     welcome_text = get_premium_welcome(user_mention, lang)
     try:
-        await callback.message.edit_caption(caption=welcome_text, reply_markup=keyboards.main_menu(lang), parse_mode="HTML")
+        await safe_edit_message(callback, welcome_text, reply_markup=keyboards.main_menu(lang))
     except:
         await callback.message.delete()
         try:
@@ -968,7 +1101,7 @@ async def category_selected(callback: types.CallbackQuery):
         else:
             text = "<b>❌ В этой категории пока нет товаров</b>"
         
-        await callback.message.edit_caption(caption=text, reply_markup=keyboards.back_to_menu(lang), parse_mode="HTML")
+        await safe_edit_message(callback, text, reply_markup=keyboards.back_to_menu(lang))
         await callback.answer()
         return
     
@@ -1110,19 +1243,19 @@ async def show_stars_menu(callback: types.CallbackQuery, products, lang):
     """Показать специальное меню для Stars"""
     if lang == "uz":
         text = (
-            "🌟 <b>Telegram Stars</b>\n\n"
-            "<code>1 star = 320 so'm</code>\n"
+            "<tg-emoji emoji-id=\"5936259309812846957\">🌟</tg-emoji> <b>Telegram Stars</b>\n\n"
+            "<code>1 star = 270 so'm</code>\n"
             "<code>Minimal: 50 stars</code>\n"
             "<code>Maksimal: 1 000 000 stars</code>\n\n"
-            "👇 <b>Tanlang:</b>"
+            "<tg-emoji emoji-id=\"6269085886177087845\">👇</tg-emoji> <b>Tanlang:</b>"
         )
     else:
         text = (
-            "🌟 <b>Telegram Stars</b>\n\n"
-            "<code>1 star = 320 сум</code>\n"
+            "<tg-emoji emoji-id=\"5936259309812846957\">🌟</tg-emoji> <b>Telegram Stars</b>\n\n"
+            "<code>1 star = 270 сум</code>\n"
             "<code>Минимально: 50 stars</code>\n"
             "<code>Максимально: 1 000 000 stars</code>\n\n"
-            "👇 <b>Выберите:</b>"
+            "<tg-emoji emoji-id=\"6269085886177087845\">👇</tg-emoji> <b>Выберите:</b>"
         )
     
     # Создаем клавиатуру с товарами
@@ -1136,17 +1269,17 @@ async def show_stars_menu(callback: types.CallbackQuery, products, lang):
         # Сокращаем название для кнопки и добавляем цену
         if "100 Stars" in name_uz or "100 Stars" in name_ru:
             display_name = "100 Stars"
-            button_text = f"🌟 {display_name} - {price:,} UZS"
+            button_text = f"⭐️ {display_name} - {price:,} UZS"
         elif "500 Stars" in name_uz or "500 Stars" in name_ru:
             display_name = "500 Stars"
-            button_text = f"🌟 {display_name} - {price:,} UZS"
+            button_text = f"⭐️ {display_name} - {price:,} UZS"
         elif "1000 Stars" in name_uz or "1000 Stars" in name_ru:
             display_name = "1000 Stars"
-            button_text = f"🌟 {display_name} - {price:,} UZS"
+            button_text = f"⭐️ {display_name} - {price:,} UZS"
         else:
             # Убираем скобки с типом для кнопки
             clean_name = name.replace("(sotib olish)", "").replace("(покупка)", "").replace("(sotish)", "").replace("(продажа)", "").strip()
-            button_text = f"{clean_name} - {price:,} UZS"
+            button_text = f"⭐️ {clean_name} - {price:,} UZS"
         
         row.append(InlineKeyboardButton(text=button_text, callback_data=f"product_{product_id}"))
         
@@ -1161,9 +1294,9 @@ async def show_stars_menu(callback: types.CallbackQuery, products, lang):
     
     # Добавляем специальную кнопку для покупки произвольного количества
     if lang == "uz":
-        custom_button_text = "⭐️ Boshqa miqdor (50-1 000 000)"
+        custom_button_text = "⭐️ Boshqa miqdor (50 - 1 000 000)"
     else:
-        custom_button_text = "⭐️ Другое количество (50-1 000 000)"
+        custom_button_text = "⭐️ Другое количество (50 - 1 000 000)"
     
     keyboard_buttons.append([InlineKeyboardButton(text=custom_button_text, callback_data="custom_stars")])
     
@@ -1204,7 +1337,7 @@ async def custom_stars_selected(callback: types.CallbackQuery, state: FSMContext
     if lang == "uz":
         text = (
             "⭐️ <b>Boshqa miqdor stars sotib olish</b>\n\n"
-            "💵 <b>1 star narxi:</b> <code>320 so'm</code>\n"
+            "💵 <b>1 star narxi:</b> <code>270 so'm</code>\n"
             "📊 <b>Minimal:</b> <code>50 stars</code>\n"
             "📊 <b>Maksimal:</b> <code>1 000 000 stars</code>\n\n"
             "📝 <b>Nechta stars sotib olmoqchisiz?</b>\n"
@@ -1213,7 +1346,7 @@ async def custom_stars_selected(callback: types.CallbackQuery, state: FSMContext
     else:
         text = (
             "⭐️ <b>Покупка другого количества stars</b>\n\n"
-            "💵 <b>Цена 1 star:</b> <code>320 сум</code>\n"
+            "💵 <b>Цена 1 star:</b> <code>270 сум</code>\n"
             "📊 <b>Минимально:</b> <code>50 stars</code>\n"
             "📊 <b>Максимально:</b> <code>1 000 000 stars</code>\n\n"
             "📝 <b>Сколько stars хотите купить?</b>\n"
@@ -1249,7 +1382,7 @@ async def product_selected(callback: types.CallbackQuery, state: FSMContext):
         else:
             text = "❌ <b>Этот товар не найден</b>"
         
-        await callback.message.edit_caption(caption=text, reply_markup=keyboards.back_to_menu(lang), parse_mode="HTML")
+        await safe_edit_message(callback, text, reply_markup=keyboards.back_to_menu(lang))
         await callback.answer()
         return
     
@@ -1262,7 +1395,7 @@ async def product_selected(callback: types.CallbackQuery, state: FSMContext):
         else:
             text = "❌ <b>Этот товар временно недоступен</b>"
         
-        await callback.message.edit_caption(caption=text, reply_markup=keyboards.back_to_menu(lang), parse_mode="HTML")
+        await safe_edit_message(callback, text, reply_markup=keyboards.back_to_menu(lang))
         await callback.answer()
         return
     
@@ -1270,7 +1403,49 @@ async def product_selected(callback: types.CallbackQuery, state: FSMContext):
     name = name_uz if lang == "uz" else name_ru
     description = desc_uz if lang == "uz" else desc_ru
     
-    # Формируем текст в формате цитаты
+    # Для Stars - особый формат текста
+    if category == "stars":
+        # Определяем количество stars
+        from config import STARS_PRICES
+        stars_count = 0
+        for qty, star_price in STARS_PRICES.items():
+            if star_price == price:
+                stars_count = qty
+                break
+        
+        if stars_count == 0:
+            import re
+            match = re.search(r"(\d+)", name)
+            if match:
+                stars_count = int(match.group(1))
+        
+        # Формируем продающий текст для Stars
+        if lang == "uz":
+            text = (
+                f"<tg-emoji emoji-id=\"4983748881977181112\">⭐️</tg-emoji> <b>{stars_count} Stars = {price:,} so'm</b>\n\n"
+                f"<b>{stars_count} Stars ni qaysi profilingizga olmoqchisiz?</b>\n\n"
+                f"Usernameni @ bilan yozing... <tg-emoji emoji-id=\"5197269100878907942\">✍🏻</tg-emoji>"
+            )
+        else:
+            text = (
+                f"<tg-emoji emoji-id=\"4983748881977181112\">⭐️</tg-emoji> <b>{stars_count} Stars = {price:,} сум</b>\n\n"
+                f"<b>На какой профиль хотите получить {stars_count} Stars?</b>\n\n"
+                f"Напишите username с @... <tg-emoji emoji-id=\"5197269100878907942\">✍🏻</tg-emoji>"
+            )
+        
+        await safe_edit_message(callback, text)
+        await state.set_state(OrderStates.waiting_for_username)
+        await state.update_data(
+            product_id=product_id,
+            category=category,
+            service_name=name,
+            price=price,
+            stars_count=stars_count
+        )
+        await callback.answer()
+        return
+    
+    # Для остальных категорий - стандартный формат
     if lang == "uz":
         text = (
             f"✅ <b>{name}</b>\n"
@@ -1306,7 +1481,7 @@ async def product_selected(callback: types.CallbackQuery, state: FSMContext):
                     f"⚠️ <b>Важно:</b> На номер придет код для входа в аккаунт"
                 )
             
-            await callback.message.edit_caption(caption=text, parse_mode="HTML")
+            await safe_edit_message(callback, text)
             await state.set_state(OrderStates.waiting_for_phone_number)
             await state.update_data(
                 product_id=product_id,
@@ -1330,7 +1505,7 @@ async def product_selected(callback: types.CallbackQuery, state: FSMContext):
                     f"⚠️ <b>Важно:</b> Premium будет отправлен на этот аккаунт"
                 )
             
-            await callback.message.edit_caption(caption=text, parse_mode="HTML")
+            await safe_edit_message(callback, text)
             await state.set_state(OrderStates.waiting_for_username)
             await state.update_data(
                 product_id=product_id,
@@ -1339,54 +1514,6 @@ async def product_selected(callback: types.CallbackQuery, state: FSMContext):
                 price=price,
                 needs_account=False
             )
-    
-    # Для Stars - не спрашиваем количество повторно, а используем фиксированный пакет
-    elif category == "stars":
-        # Пытаемся определить количество stars по цене из словаря цен
-        from config import STARS_PRICES
-
-        stars_count = 0
-        for qty, star_price in STARS_PRICES.items():
-            if star_price == price:
-                stars_count = qty
-                break
-
-        # Если не нашли по цене, пробуем вытащить число из названия товара (например, "100 Stars ...")
-        if stars_count == 0:
-            import re
-            match = re.search(r"(\d+)", name)
-            if match:
-                stars_count = int(match.group(1))
-
-        # Формируем текст сразу с итоговой суммой и запросом username
-        if lang == "uz":
-            text += (
-                f"⭐️ <b>Stars soni:</b> {stars_count} ta\n"
-                f"💵 <b>1 star narxi:</b> 320 so'm\n"
-                f"💰 <b>Jami summa:</b> <b>{price:,} so'm</b>\n\n"
-                f"👤 <b>Iltimos, username yuboring:</b>\n"
-                f"Format: @username yoki username\n\n"
-                f"⚠️ <b>Muhim:</b> Stars shu akkauntga yuboriladi"
-            )
-        else:
-            text += (
-                f"⭐️ <b>Количество stars:</b> {stars_count} шт\n"
-                f"💵 <b>Цена 1 star:</b> 320 сум\n"
-                f"💰 <b>Общая сумма:</b> <b>{price:,} сум</b>\n\n"
-                f"👤 <b>Пожалуйста, отправьте username:</b>\n"
-                f"Формат: @username или username\n\n"
-                f"⚠️ <b>Важно:</b> Stars будет отправлен на этот аккаунт"
-            )
-
-        await callback.message.edit_caption(caption=text, parse_mode="HTML")
-        await state.set_state(OrderStates.waiting_for_username)
-        await state.update_data(
-            product_id=product_id,
-            category=category,
-            service_name=name,
-            price=price,
-            stars_count=stars_count
-        )
     
     # Для Gifts - запрашиваем username
     elif category == "gifts":
@@ -1403,7 +1530,7 @@ async def product_selected(callback: types.CallbackQuery, state: FSMContext):
                 f"⚠️ <b>Важно:</b> Подарок будет отправлен на этот аккаунт"
             )
         
-        await callback.message.edit_caption(caption=text, parse_mode="HTML")
+        await safe_edit_message(callback, text)
         await state.set_state(OrderStates.waiting_for_username)
         await state.update_data(
             product_id=product_id,
@@ -1446,7 +1573,7 @@ async def product_selected(callback: types.CallbackQuery, state: FSMContext):
                 f"⚠️ <b>Важно:</b> Отправьте только логин, пароль запросим позже"
             )
         
-        await callback.message.edit_caption(caption=text, parse_mode="HTML")
+        await safe_edit_message(callback, text)
         await state.set_state(OrderStates.waiting_for_roblox_login)
         await state.update_data(
             product_id=product_id,
@@ -1511,14 +1638,14 @@ async def product_selected(callback: types.CallbackQuery, state: FSMContext):
 async def help_callback(callback: types.CallbackQuery):
     lang = database.get_user_language(callback.from_user.id)
     help_text = get_premium_help(lang)
-    await callback.message.edit_caption(caption=help_text, reply_markup=keyboards.back_to_menu(lang), parse_mode="HTML")
+    await safe_edit_message(callback, help_text, reply_markup=keyboards.back_to_menu(lang))
     await callback.answer()
 
 @dp.callback_query(F.data == "contact")
 async def contact_callback(callback: types.CallbackQuery):
     lang = database.get_user_language(callback.from_user.id)
     contact_text = get_premium_help(lang)  # Используем ту же функцию помощи
-    await callback.message.edit_caption(caption=contact_text, reply_markup=keyboards.back_to_menu(lang), parse_mode="HTML")
+    await safe_edit_message(callback, contact_text, reply_markup=keyboards.back_to_menu(lang))
     await callback.answer()
 
 @dp.callback_query(F.data == "statistics")
@@ -1526,7 +1653,7 @@ async def statistics_callback(callback: types.CallbackQuery):
     lang = database.get_user_language(callback.from_user.id)
     user_count = database.get_user_count()
     stats_text = get_text(lang, "statistics", use_premium=True, count=user_count)
-    await callback.message.edit_caption(caption=stats_text, reply_markup=keyboards.back_to_menu(lang), parse_mode="HTML")
+    await safe_edit_message(callback, stats_text, reply_markup=keyboards.back_to_menu(lang))
     await callback.answer()
 
 @dp.message(Command("help"))
@@ -1625,10 +1752,9 @@ async def approve_order(callback: types.CallbackQuery):
             parse_mode="HTML"
         )
     except:
-        await callback.message.edit_caption(
-            caption=callback.message.caption + "\n\n✅ <b>ПОДТВЕРЖДЕН</b>",
-            parse_mode="HTML"
-        )
+        # Используем safe_edit_message для работы с любым типом сообщения
+        new_text = callback.message.caption if callback.message.caption else callback.message.text
+        await safe_edit_message(callback, new_text + "\n\n✅ <b>ПОДТВЕРЖДЕН</b>")
     
     await callback.answer("✅ Заказ подтвержден!")
 
@@ -1663,10 +1789,9 @@ async def reject_order(callback: types.CallbackQuery):
             parse_mode="HTML"
         )
     except:
-        await callback.message.edit_caption(
-            caption=callback.message.caption + "\n\n❌ <b>ОТКЛОНЕН</b>",
-            parse_mode="HTML"
-        )
+        # Используем safe_edit_message для работы с любым типом сообщения
+        new_text = callback.message.caption if callback.message.caption else callback.message.text
+        await safe_edit_message(callback, new_text + "\n\n❌ <b>ОТКЛОНЕН</b>")
     
     await callback.answer("❌ Заказ отклонен!")
 
@@ -1795,14 +1920,20 @@ async def cmd_rules(message: types.Message):
 
 @dp.message(Command("admin"))
 async def cmd_admin(message: types.Message, state: FSMContext):
+    print(f"[DEBUG] /admin command from user {message.from_user.id}, ADMIN_IDS: {config.ADMIN_IDS}")
+    
     if message.from_user.id not in config.ADMIN_IDS:
         await message.answer("❌ У вас нет доступа к админ панели!")
+        print(f"[DEBUG] Access denied for user {message.from_user.id}")
         return
     
     # Проверяем авторизацию
     data = await state.get_data()
+    print(f"[DEBUG] State data for user {message.from_user.id}: {data}")
+    
     if data.get('admin_authorized'):
         # Уже авторизован
+        print(f"[DEBUG] User {message.from_user.id} already authorized")
         await message.answer(
             "🔐 <b>Админ панель Star_payuz</b>\n\n"
             "Выберите действие:",
@@ -1811,17 +1942,21 @@ async def cmd_admin(message: types.Message, state: FSMContext):
         )
     else:
         # Запрашиваем логин
+        print(f"[DEBUG] Requesting login from user {message.from_user.id}")
         await message.answer(
             "🔐 <b>Вход в админ панель</b>\n\n"
             "Введите логин:",
             parse_mode="HTML"
         )
         await state.set_state(AdminAuthStates.waiting_for_login)
+        print(f"[DEBUG] State set to waiting_for_login for user {message.from_user.id}")
 
 @dp.message(AdminAuthStates.waiting_for_login)
 async def admin_login_received(message: types.Message, state: FSMContext):
     """Получение логина"""
     login = message.text.strip()
+    
+    print(f"[DEBUG] Admin login attempt: {login} from user {message.from_user.id}")
     
     if login == config.ADMIN_LOGIN:
         await state.update_data(admin_login=login)
@@ -1830,18 +1965,23 @@ async def admin_login_received(message: types.Message, state: FSMContext):
             "Введите пароль:",
             parse_mode="HTML"
         )
+        # Явно устанавливаем состояние
         await state.set_state(AdminAuthStates.waiting_for_password)
+        print(f"[DEBUG] State set to waiting_for_password for user {message.from_user.id}")
     else:
         await message.answer(
             "❌ <b>Неверный логин!</b>\n\n"
             "Попробуйте еще раз или /cancel для отмены",
             parse_mode="HTML"
         )
+        print(f"[DEBUG] Wrong login: {login}")
 
 @dp.message(AdminAuthStates.waiting_for_password)
 async def admin_password_received(message: types.Message, state: FSMContext):
     """Получение пароля"""
     password = message.text.strip()
+    
+    print(f"[DEBUG] Admin password attempt from user {message.from_user.id}")
     
     # Удаляем сообщение с паролем для безопасности
     try:
@@ -1853,6 +1993,8 @@ async def admin_password_received(message: types.Message, state: FSMContext):
         await state.update_data(admin_authorized=True)
         await state.set_state(None)
         
+        print(f"[DEBUG] Admin authorized successfully for user {message.from_user.id}")
+        
         await bot.send_message(
             message.from_user.id,
             "✅ <b>Успешная авторизация!</b>\n\n"
@@ -1862,6 +2004,7 @@ async def admin_password_received(message: types.Message, state: FSMContext):
             parse_mode="HTML"
         )
     else:
+        print(f"[DEBUG] Wrong password from user {message.from_user.id}")
         await bot.send_message(
             message.from_user.id,
             "❌ <b>Неверный пароль!</b>\n\n"
@@ -1875,6 +2018,8 @@ async def cmd_cancel(message: types.Message, state: FSMContext):
     """Отмена текущего действия"""
     await state.clear()
     await message.answer("❌ Действие отменено", reply_markup=types.ReplyKeyboardRemove())
+
+# Отладочный обработчик удален для исправления авторизации админа
 
 async def set_bot_commands():
     """Установка команд бота"""

@@ -5,12 +5,13 @@
 """
 
 # Токен бота
-BOT_TOKEN = "8643535323:AAHJTPTbYTGf0wNQwnY0StACaauO6uQ1luk"
+BOT_TOKEN = "8748508957:AAHiCFJsccw90Z-ZE28NRys4SvSTZ9GxQU0"
 
 # Администраторы
-ADMIN_IDS = [7281878643]  # Замени на свой ID
-ADMIN_USERNAME = "admin"
-ADMIN_PASSWORD = "admin123"
+ADMIN_IDS = [8784918764]  # Замени на свой ID
+ADMIN_LOGIN = "Kamron5505"
+ADMIN_USERNAME = "Kamron5505"  # Для совместимости
+ADMIN_PASSWORD = "5505"
 
 # База данных
 DATABASE_FILE = "star_payuz.db"
@@ -43,28 +44,28 @@ CARD_BOT = "@CardKamron"
 # ============================================
 
 # Telegram Stars (50-1000 stars)
-STAR_50 = 16000
-STAR_75 = 22000
-STAR_100 = 28000
-STAR_150 = 40000
-STAR_200 = 55000
-STAR_250 = 65000
-STAR_300 = 75000
-STAR_350 = 85000
-STAR_400 = 99000
-STAR_450 = 110000
-STAR_500 = 120000
-STAR_550 = 130000
-STAR_600 = 140000
-STAR_650 = 150000
-STAR_700 = 160000
-STAR_750 = 180000
-STAR_800 = 185000
-STAR_900 = 205000
-STAR_1000 = 230000
+STAR_50 = 13500
+STAR_75 = 20250
+STAR_100 = 27000
+STAR_150 = 40500
+STAR_200 = 54000
+STAR_250 = 67500
+STAR_300 = 81000
+STAR_350 = 94500
+STAR_400 = 108000
+STAR_450 = 121500
+STAR_500 = 135000
+STAR_550 = 148500
+STAR_600 = 162000
+STAR_650 = 175500
+STAR_700 = 189000
+STAR_750 = 202500
+STAR_800 = 216000
+STAR_900 = 243000
+STAR_1000 = 270000
 
 # Telegram Premium
-PREMIUM_1_MONTH_ACCOUNT = 50000          # 1 месяц (с аккаунтом)
+PREMIUM_1_MONTH_ACCOUNT = 47000          # 1 месяц (с аккаунтом)
 PREMIUM_12_MONTHS_ACCOUNT = 290000       # 12 месяцев (с аккаунтом)
 PREMIUM_3_MONTHS_NO_ACCOUNT = 175000     # 3 месяца (без аккаунта)
 PREMIUM_6_MONTHS_NO_ACCOUNT = 235000     # 6 месяцев (без аккаунта)
@@ -229,8 +230,8 @@ def calculate_stars_price(quantity):
     if quantity > 1000:
         return None  # Максимальное количество 1000
     
-    # Базовая цена: 320 сум за 1 star
-    base_price_per_star = 320
+    # Базовая цена: 270 сум за 1 star
+    base_price_per_star = 270
     return quantity * base_price_per_star
 
 def calculate_boost_price(days, quantity):
