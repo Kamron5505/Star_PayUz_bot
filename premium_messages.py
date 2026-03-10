@@ -8,25 +8,25 @@
 def get_premium_welcome(name, lang="ru"):
     """Приветствие с Premium эмодзи"""
     if lang == "uz":
-        return f'''<tg-emoji emoji-id="5456390099958773299">👋</tg-emoji> <b>Xush kelibsiz, {name}!</b>
+        return f'''<tg-emoji emoji-id="4976940882071651344">👋</tg-emoji> <b>Xush kelibsiz, {name}!</b>
 
-<tg-emoji emoji-id="5936259309812846957">🌟</tg-emoji> <b>Bizda siz Telegram Stars va Telegram Premium'ni o'z akkauntingiz uchun so'm orqali xarid qilishingiz mumkin</b> <tg-emoji emoji-id="5456390099958773299">💳</tg-emoji><tg-emoji emoji-id="5460991276948143687">🔥</tg-emoji>
+<tg-emoji emoji-id="5936259309812846957">🌟</tg-emoji> <b>Bizda siz Telegram Stars va Telegram Premium'ni o'z akkauntingiz uchun so'm orqali xarid qilishingiz mumkin</b><tg-emoji emoji-id="5460991276948143687">🔥</tg-emoji>
 
 <b>Shuningdek, boshqa mashhur xizmatlarni ham arzon narxlarda sotib olish imkoniyati mavjud.</b><tg-emoji emoji-id="5458488840022933066">🛍️</tg-emoji>
 
 <b>Yaxshi xaridlar tilaymiz!</b>
 
-<tg-emoji emoji-id="5456390099958773299">👇</tg-emoji> <b>Kerakli xizmatni tanlang va buyurtma bering!</b>'''
+<tg-emoji emoji-id="5406745015365943482">👇</tg-emoji> <b>Kerakli xizmatni tanlang va buyurtma bering!</b>'''
     else:
-        return f'''<tg-emoji emoji-id="5456390099958773299">👋</tg-emoji> <b>Добро пожаловать, {name}!</b>
+        return f'''<tg-emoji emoji-id="4976940882071651344">👋</tg-emoji> <b>Добро пожаловать, {name}!</b>
 
-<tg-emoji emoji-id="5936259309812846957">🌟</tg-emoji> <b>У нас вы можете купить Telegram Stars и Telegram Premium для своего аккаунта за сумы</b> <tg-emoji emoji-id="5456390099958773299">💳</tg-emoji><tg-emoji emoji-id="5460991276948143687">🔥</tg-emoji>
+<tg-emoji emoji-id="5936259309812846957">🌟</tg-emoji> <b>У нас вы можете купить Telegram Stars и Telegram Premium для своего аккаунта за сумы</b><tg-emoji emoji-id="5460991276948143687">🔥</tg-emoji>
 
 <b>Также есть возможность приобрести другие популярные услуги по выгодным ценам.</b><tg-emoji emoji-id="5458488840022933066">🛍️</tg-emoji>
 
 <b>Желаем удачных покупок!</b>
 
-<tg-emoji emoji-id="5456390099958773299">👇</tg-emoji> <b>Выберите услугу и оформите заказ!</b>'''
+<tg-emoji emoji-id="5406745015365943482">👇</tg-emoji> <b>Выберите услугу и оформите заказ!</b>'''
 
 
 def get_premium_service_selected(service, price, lang="ru"):
@@ -80,19 +80,19 @@ def get_premium_payment_info(service, price, method, lang="ru"):
 def get_premium_order_accepted(order_id, lang="ru"):
     """Подтверждение заказа с Premium эмодзи"""
     if lang == "uz":
-        return f'''<tg-emoji emoji-id="5456390099958773299">✅</tg-emoji> <b>Buyurtmangiz #{order_id} qabul qilindi!</b>
+        return f'''✅ <b>Buyurtmangiz #{order_id} qabul qilindi!</b>
 
-<tg-emoji emoji-id="5456390099958773299">⏳</tg-emoji> Administrator tekshiruvini kuting.
+⏳ Administrator tekshiruvini kuting.
 Odatda bu 5–30 daqiqa davom etadi.
 
-<tg-emoji emoji-id="5456390099958773299">📬</tg-emoji> Buyurtma tayyor bo'lgach sizga xabar beramiz.'''
+📬 Buyurtma tayyor bo'lgach sizga xabar beramiz.'''
     else:
-        return f'''<tg-emoji emoji-id="5456390099958773299">✅</tg-emoji> <b>Ваш заказ #{order_id} принят!</b>
+        return f'''✅ <b>Ваш заказ #{order_id} принят!</b>
 
-<tg-emoji emoji-id="5456390099958773299">⏳</tg-emoji> Ожидайте проверки администратором.
+⏳ Ожидайте проверки администратором.
 Обычно это занимает 5–30 минут.
 
-<tg-emoji emoji-id="5456390099958773299">📬</tg-emoji> Мы уведомим вас, когда заказ будет обработан.'''
+📬 Мы уведомим вас, когда заказ будет обработан.'''
 
 
 def get_premium_help(lang="ru"):

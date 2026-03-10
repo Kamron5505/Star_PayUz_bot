@@ -229,7 +229,7 @@ async def check_sub_callback(callback: types.CallbackQuery):
 @dp.callback_query(F.data == "change_language")
 async def change_language(callback: types.CallbackQuery):
     lang = database.get_user_language(callback.from_user.id)
-    await safe_edit_message(callback, get_text_simple(lang), reply_markup=keyboards.language_keyboard(), parse_mode="HTML")
+    await safe_edit_message(callback, get_text(lang, "choose_language"), reply_markup=keyboards.language_keyboard(), parse_mode="HTML")
 
 @dp.callback_query(F.data.startswith("service_"))
 async def service_selected(callback: types.CallbackQuery, state: FSMContext):
@@ -445,19 +445,19 @@ async def username_received(message: types.Message, state: FSMContext):
     if category == "gifts":
         if lang == "uz":
             text = (
-                f"✅ <b>Username qabul qilindi!</b>\n\n"
-                f"👤 <b>Username:</b> @{username}\n\n"
-                f"💌 <b>Iltimos, xabar yuboring:</b>\n"
+                f'<tg-emoji emoji-id="5208880351690112495">✅</tg-emoji> <b>Username qabul qilindi!</b>\n\n'
+                f'<tg-emoji emoji-id="5818715087237549366">👤</tg-emoji> <b>Username:</b> @{username}\n\n'
+                f'<tg-emoji emoji-id="5317049828889345021">💌</tg-emoji> <b>Iltimos, xabar yuboring:</b>\n'
                 f"Bu xabar sovg'a bilan birga yuboriladi\n\n"
-                f"📝 Xabar uzunligi: 0-200 belgi"
+                f'<tg-emoji emoji-id="5429419526406033514">📝</tg-emoji> Xabar uzunligi: 0-200 belgi'
             )
         else:
             text = (
-                f"✅ <b>Username принят!</b>\n\n"
-                f"👤 <b>Username:</b> @{username}\n\n"
-                f"💌 <b>Пожалуйста, отправьте сообщение:</b>\n"
+                f'<tg-emoji emoji-id="5208880351690112495">✅</tg-emoji> <b>Username принят!</b>\n\n'
+                f'<tg-emoji emoji-id="5818715087237549366">👤</tg-emoji> <b>Username:</b> @{username}\n\n'
+                f'<tg-emoji emoji-id="5317049828889345021">💌</tg-emoji> <b>Пожалуйста, отправьте сообщение:</b>\n'
                 f"Это сообщение будет отправлено вместе с подарком\n\n"
-                f"📝 Длина сообщения: 0-200 символов"
+                f'<tg-emoji emoji-id="5429419526406033514">📝</tg-emoji> Длина сообщения: 0-200 символов'
             )
         
         await message.answer(text, parse_mode="HTML")
@@ -504,6 +504,50 @@ async def username_received(message: types.Message, state: FSMContext):
                 [
                     InlineKeyboardButton(text="✅ Tasdiqlash" if lang == "uz" else "✅ Подтвердить", callback_data="confirm_stars_payment"),
                     InlineKeyboardButton(text="❌ Bekor qilish" if lang == "uz" else "❌ Отменить", callback_data="cancel_stars_payment")
+                ]
+            ])
+            
+            sent_message = await message.answer(text, reply_markup=keyboard, parse_mode="HTML")
+            await state.update_data(confirmation_message_id=sent_message.message_id)
+            await state.set_state(OrderStates.waiting_for_payment_confirmation)
+            
+            # Запускаем таймер на 5 минут
+            asyncio.create_task(cancel_order_after_timeout(message.from_user.id, order_id, state, 300))
+            
+        elif category == "premium":
+            # Для Premium показываем сводку заказа с кнопками подтверждения
+            import random
+            import string
+            order_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+            
+            await state.update_data(order_id=order_id)
+            
+            if lang == "uz":
+                text = (
+                    f"<tg-emoji emoji-id=\"5445353829304387411\">💳</tg-emoji> <b>To'lov ma'lumotlari</b>\n\n"
+                    f"<code><tg-emoji emoji-id=\"5208858619155594626\">▪️</tg-emoji>Turi: <tg-emoji emoji-id=\"5368766152870742501\">💎</tg-emoji> Telegram Premium</code>\n"
+                    f"<code><tg-emoji emoji-id=\"5208858619155594626\">▪️</tg-emoji>Username: @{username}</code>\n"
+                    f"<code><tg-emoji emoji-id=\"5208858619155594626\">▪️</tg-emoji>Tarif: {service_name}</code>\n"
+                    f"<code><tg-emoji emoji-id=\"5208858619155594626\">▪️</tg-emoji>Summa: {price:,}</code>\n"
+                    f"<code><tg-emoji emoji-id=\"5208858619155594626\">▪️</tg-emoji>ID: [{order_id}]</code>\n\n"
+                    f"<tg-emoji emoji-id=\"5316554554735607106\">⚠️</tg-emoji> <b>Ma'lumotlarni tekshirib, to'lovni tasdiqlashingiz bilan buyurtma sizga avtomatik yuboriladi, agar to'lov 5 daqiqa ichida amalga oshirilmasa, buyurtma avtomatik ravishda bekor qilinadi.</b>"
+                )
+            else:
+                text = (
+                    f"<tg-emoji emoji-id=\"5445353829304387411\">💳</tg-emoji> <b>Информация об оплате</b>\n\n"
+                    f"<code><tg-emoji emoji-id=\"5208858619155594626\">▪️</tg-emoji>Тип: <tg-emoji emoji-id=\"5368766152870742501\">💎</tg-emoji> Telegram Premium</code>\n"
+                    f"<code><tg-emoji emoji-id=\"5208858619155594626\">▪️</tg-emoji>Username: @{username}</code>\n"
+                    f"<code><tg-emoji emoji-id=\"5208858619155594626\">▪️</tg-emoji>Тариф: {service_name}</code>\n"
+                    f"<code><tg-emoji emoji-id=\"5208858619155594626\">▪️</tg-emoji>Сумма: {price:,}</code>\n"
+                    f"<code><tg-emoji emoji-id=\"5208858619155594626\">▪️</tg-emoji>ID: [{order_id}]</code>\n\n"
+                    f"<tg-emoji emoji-id=\"5316554554735607106\">⚠️</tg-emoji> <b>Проверьте данные и подтвердите оплату. Заказ будет автоматически отправлен вам. Если оплата не будет произведена в течение 5 минут, заказ будет автоматически отменен.</b>"
+                )
+            
+            # Создаем кнопки подтверждения и отмены
+            keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                [
+                    InlineKeyboardButton(text="✅ Tasdiqlash" if lang == "uz" else "✅ Подтвердить", callback_data="confirm_premium_payment"),
+                    InlineKeyboardButton(text="❌ Bekor qilish" if lang == "uz" else "❌ Отменить", callback_data="cancel_premium_payment")
                 ]
             ])
             
@@ -622,6 +666,120 @@ async def cancel_stars_payment(callback: types.CallbackQuery, state: FSMContext)
     await state.clear()
     await callback.answer()
 
+@dp.callback_query(F.data == "confirm_premium_payment")
+async def confirm_premium_payment(callback: types.CallbackQuery, state: FSMContext):
+    """Подтверждение оплаты Premium - показываем карту и просим отправить чек"""
+    lang = database.get_user_language(callback.from_user.id)
+    data = await state.get_data()
+    price = data.get('price', 0)
+    username = data.get('username', '')
+    
+    if lang == "uz":
+        text = (
+            f"<tg-emoji emoji-id=\"5445353829304387411\">💳</tg-emoji> <tg-emoji emoji-id=\"5397961648331832851\">💳</tg-emoji> <code>9860 1801 0171 2578</code>\n"
+            f"<tg-emoji emoji-id=\"5327856104045038161\">👤</tg-emoji> <b>Isxakova A.</b>\n\n"
+            f"Quyidagi kartaga <b>{price:,} so'm</b> yuboring va chekini tashlang..."
+        )
+    else:
+        text = (
+            f"<tg-emoji emoji-id=\"5445353829304387411\">💳</tg-emoji> <tg-emoji emoji-id=\"5397961648331832851\">💳</tg-emoji> <code>9860 1801 0171 2578</code>\n"
+            f"<tg-emoji emoji-id=\"5327856104045038161\">👤</tg-emoji> <b>Isxakova A.</b>\n\n"
+            f"Отправьте <b>{price:,} сум</b> на эту карту и отправьте чек..."
+        )
+    
+    # Удаляем сообщение с кнопками
+    try:
+        await callback.message.delete()
+    except:
+        pass
+    
+    # Отправляем БЕЗ картинки, только текст
+    await bot.send_message(callback.from_user.id, text, parse_mode="HTML")
+    
+    await state.set_state(OrderStates.waiting_for_payment_proof)
+    await callback.answer()
+
+@dp.callback_query(F.data == "cancel_premium_payment")
+async def cancel_premium_payment(callback: types.CallbackQuery, state: FSMContext):
+    """Отмена оплаты Premium"""
+    lang = database.get_user_language(callback.from_user.id)
+    
+    if lang == "uz":
+        text = (
+            f"<tg-emoji emoji-id=\"5366476626064324615\">❌</tg-emoji> <b>Buyurtma bekor qilindi.</b>\n\n"
+            f"Agar xohlasangiz, buyurtmani qaytadan yaratishingiz mumkin."
+        )
+    else:
+        text = (
+            f"<tg-emoji emoji-id=\"5366476626064324615\">❌</tg-emoji> <b>Заказ отменен.</b>\n\n"
+            f"Если хотите, вы можете создать заказ заново."
+        )
+    
+    try:
+        await callback.message.edit_text(text, parse_mode="HTML")
+    except:
+        await callback.message.answer(text, parse_mode="HTML")
+    
+    await state.clear()
+    await callback.answer()
+
+@dp.callback_query(F.data == "confirm_gift_payment")
+async def confirm_gift_payment(callback: types.CallbackQuery, state: FSMContext):
+    """Подтверждение оплаты Gift - показываем карту и просим отправить чек"""
+    lang = database.get_user_language(callback.from_user.id)
+    data = await state.get_data()
+    price = data.get('price', 0)
+    username = data.get('username', '')
+    
+    if lang == "uz":
+        text = (
+            f"<tg-emoji emoji-id=\"5445353829304387411\">💳</tg-emoji> <tg-emoji emoji-id=\"5397961648331832851\">💳</tg-emoji> <code>9860 1801 0171 2578</code>\n"
+            f"<tg-emoji emoji-id=\"5327856104045038161\">👤</tg-emoji> <b>Isxakova A.</b>\n\n"
+            f"Quyidagi kartaga <b>{price:,} so'm</b> yuboring va chekini tashlang..."
+        )
+    else:
+        text = (
+            f"<tg-emoji emoji-id=\"5445353829304387411\">💳</tg-emoji> <tg-emoji emoji-id=\"5397961648331832851\">💳</tg-emoji> <code>9860 1801 0171 2578</code>\n"
+            f"<tg-emoji emoji-id=\"5327856104045038161\">👤</tg-emoji> <b>Isxakova A.</b>\n\n"
+            f"Отправьте <b>{price:,} сум</b> на эту карту и отправьте чек..."
+        )
+    
+    # Удаляем сообщение с кнопками
+    try:
+        await callback.message.delete()
+    except:
+        pass
+    
+    # Отправляем БЕЗ картинки, только текст
+    await bot.send_message(callback.from_user.id, text, parse_mode="HTML")
+    
+    await state.set_state(OrderStates.waiting_for_payment_proof)
+    await callback.answer()
+
+@dp.callback_query(F.data == "cancel_gift_payment")
+async def cancel_gift_payment(callback: types.CallbackQuery, state: FSMContext):
+    """Отмена оплаты Gift"""
+    lang = database.get_user_language(callback.from_user.id)
+    
+    if lang == "uz":
+        text = (
+            f"<tg-emoji emoji-id=\"5366476626064324615\">❌</tg-emoji> <b>Buyurtma bekor qilindi.</b>\n\n"
+            f"Agar xohlasangiz, buyurtmani qaytadan yaratishingiz mumkin."
+        )
+    else:
+        text = (
+            f"<tg-emoji emoji-id=\"5366476626064324615\">❌</tg-emoji> <b>Заказ отменен.</b>\n\n"
+            f"Если хотите, вы можете создать заказ заново."
+        )
+    
+    try:
+        await callback.message.edit_text(text, parse_mode="HTML")
+    except:
+        await callback.message.answer(text, parse_mode="HTML")
+    
+    await state.clear()
+    await callback.answer()
+
 @dp.message(OrderStates.waiting_for_message)
 async def message_received(message: types.Message, state: FSMContext):
     """Получение сообщения для NFT подарка"""
@@ -690,30 +848,56 @@ async def anonymous_selected(callback: types.CallbackQuery, state: FSMContext):
     service_name = data.get('service_name')
     price = data.get('price')
     
+    # Генерируем ID заказа
+    import random
+    import string
+    order_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+    await state.update_data(order_id=order_id)
+    
+    # Извлекаем эмодзи подарка из названия
+    import re
+    emoji_match = re.search(r'([💝🧸🎁🌹🎂🚀🍾💐💎🏆💍])', service_name)
+    gift_emoji = emoji_match.group(1) if emoji_match else "🎁"
+    
+    # Извлекаем количество stars
+    stars_match = re.search(r'(\d+)\s*⭐', service_name)
+    stars_count = stars_match.group(1) if stars_match else "?"
+    
     if lang == "uz":
         text = (
-            f"✅ <b>Sozlamalar saqlandi!</b>\n\n"
-            f"👤 <b>Username:</b> @{username}\n"
-            f"💌 <b>Xabar:</b> {gift_message}\n"
-            f"🔒 <b>Anonimlik:</b> {'Ha' if is_anonymous else 'Yoq'}\n"
-            f"🛍️ <b>Xizmat:</b> {service_name}\n"
-            f"💰 <b>Summa:</b> <b>{price:,} UZS</b>\n\n"
-            f"👇 <b>To'lov usulini tanlang:</b>"
+            f"<tg-emoji emoji-id=\"5445353829304387411\">💳</tg-emoji> <b>To'lov ma'lumotlari</b>\n\n"
+            f"<code><tg-emoji emoji-id=\"5208858619155594626\">▪️</tg-emoji>Turi: {gift_emoji} Telegram Gift</code>\n"
+            f"<code><tg-emoji emoji-id=\"5208858619155594626\">▪️</tg-emoji>Username: @{username}</code>\n"
+            f"<code><tg-emoji emoji-id=\"5208858619155594626\">▪️</tg-emoji>Soni: {stars_count} ⭐️</code>\n"
+            f"<code><tg-emoji emoji-id=\"5208858619155594626\">▪️</tg-emoji>Summa: {price:,}</code>\n"
+            f"<code><tg-emoji emoji-id=\"5208858619155594626\">▪️</tg-emoji>ID: [{order_id}]</code>\n\n"
+            f"<tg-emoji emoji-id=\"5316554554735607106\">⚠️</tg-emoji> <b>Ma'lumotlarni tekshirib, to'lovni tasdiqlashingiz bilan buyurtma sizga avtomatik yuboriladi, agar to'lov 5 daqiqa ichida amalga oshirilmasa, buyurtma avtomatik ravishda bekor qilinadi.</b>"
         )
     else:
         text = (
-            f"✅ <b>Настройки сохранены!</b>\n\n"
-            f"👤 <b>Username:</b> @{username}\n"
-            f"💌 <b>Сообщение:</b> {gift_message}\n"
-            f"🔒 <b>Анонимность:</b> {'Да' if is_anonymous else 'Нет'}\n"
-            f"🛍️ <b>Услуга:</b> {service_name}\n"
-            f"💰 <b>Сумма:</b> <b>{price:,} UZS</b>\n\n"
-            f"👇 <b>Выберите способ оплаты:</b>"
+            f"<tg-emoji emoji-id=\"5445353829304387411\">💳</tg-emoji> <b>Информация об оплате</b>\n\n"
+            f"<code><tg-emoji emoji-id=\"5208858619155594626\">▪️</tg-emoji>Тип: {gift_emoji} Telegram Gift</code>\n"
+            f"<code><tg-emoji emoji-id=\"5208858619155594626\">▪️</tg-emoji>Username: @{username}</code>\n"
+            f"<code><tg-emoji emoji-id=\"5208858619155594626\">▪️</tg-emoji>Количество: {stars_count} ⭐️</code>\n"
+            f"<code><tg-emoji emoji-id=\"5208858619155594626\">▪️</tg-emoji>Сумма: {price:,}</code>\n"
+            f"<code><tg-emoji emoji-id=\"5208858619155594626\">▪️</tg-emoji>ID: [{order_id}]</code>\n\n"
+            f"<tg-emoji emoji-id=\"5316554554735607106\">⚠️</tg-emoji> <b>Проверьте данные и подтвердите оплату. Заказ будет автоматически отправлен вам. Если оплата не будет произведена в течение 5 минут, заказ будет автоматически отменен.</b>"
         )
     
-    await safe_edit_message(callback, text, reply_markup=keyboards.payment_methods())
-    await state.set_state(None)
+    # Создаем кнопки подтверждения и отмены
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="✅ Tasdiqlash" if lang == "uz" else "✅ Подтвердить", callback_data="confirm_gift_payment"),
+            InlineKeyboardButton(text="❌ Bekor qilish" if lang == "uz" else "❌ Отменить", callback_data="cancel_gift_payment")
+        ]
+    ])
+    
+    await safe_edit_message(callback, text, reply_markup=keyboard)
+    await state.set_state(OrderStates.waiting_for_payment_confirmation)
     await callback.answer()
+    
+    # Запускаем таймер на 5 минут
+    asyncio.create_task(cancel_order_after_timeout(callback.from_user.id, order_id, state, 300))
 
 @dp.message(OrderStates.waiting_for_roblox_login)
 async def roblox_login_received(message: types.Message, state: FSMContext):
@@ -1015,7 +1199,7 @@ async def payment_proof_received(message: types.Message, state: FSMContext):
     product_name = database.get_product_name(product_id, lang)
     
     order_id = database.create_order(message.from_user.id, f"product_{product_id}", price, payment_method)
-    await message.answer(get_premium_order_accepted(order_id, lang), reply_markup=keyboards.back_to_menu(lang))
+    await message.answer(get_premium_order_accepted(order_id, lang), reply_markup=keyboards.back_to_menu(lang), parse_mode="HTML")
     
     # Уведомление админам
     for admin_id in config.ADMIN_IDS:
@@ -1115,6 +1299,11 @@ async def category_selected(callback: types.CallbackQuery):
         await show_stars_menu(callback, products, lang)
         return
     
+    # Особый формат для Gifts категории
+    if category == "gifts":
+        await show_gifts_menu(callback, products, lang)
+        return
+    
     # Получаем название категории
     category_names = {
         "premium": "💎 Premium" if lang == "uz" else "💎 Premium",
@@ -1149,16 +1338,29 @@ async def category_selected(callback: types.CallbackQuery):
 
 async def show_premium_menu(callback: types.CallbackQuery, products, lang):
     """Показать простое меню Premium"""
+    # Отвечаем на callback сразу, чтобы избежать таймаута
+    await callback.answer()
+    
     if lang == "uz":
-        text = "<b>💎 Telegram premium tariflari</b>\n\n"
-        text += "<b>1 oylik va 1 yillik profilga kirib olinadi</b>\n"
-        text += "<b>3 va 6 12 oylik gift qilib jonatiladi profilga kirilmaydi</b>\n\n"
-        text += "<b>Kerali tarifni tanlang 👉</b>"
+        text = (
+            "<tg-emoji emoji-id=\"5368766152870742501\">💎</tg-emoji> <code>Telegram Premium tariflari</code>\n\n"
+            "<tg-emoji emoji-id=\"5316742794562254812\">✨</tg-emoji> <code>1 oylik</code> <b>va</b> <code>1 yillik</code> <b>— profilga kirib olinadi</b>\n"
+            "<tg-emoji emoji-id=\"6039653741156633541\">🎁</tg-emoji> <code>3 oylik</code> <b>— gift sifatida yuboriladi</b>\n"
+            "<tg-emoji emoji-id=\"6039759418826952182\">🎁</tg-emoji> <code>6 oylik</code> <b>— gift sifatida yuboriladi</b>\n"
+            "<tg-emoji emoji-id=\"6039550576042184651\">🎁</tg-emoji> <code>12 oylik</code> <b>— gift sifatida yuboriladi</b>\n"
+            "<tg-emoji emoji-id=\"6039457435381402923\">🔒</tg-emoji> <b>Profilga kirish talab qilinmaydi</b>\n\n"
+            "<tg-emoji emoji-id=\"5440770506494088011\">👇</tg-emoji> <code>Kerakli tarifni tanlang</code>"
+        )
     else:
-        text = "<b>💎 Тарифы Telegram premium</b>\n\n"
-        text += "<b>1 месяц и 1 год - вход в профиль</b>\n"
-        text += "<b>3, 6 и 12 месяцев - отправляется как подарок, без входа в профиль</b>\n\n"
-        text += "<b>Выберите нужный тариф 👉</b>"
+        text = (
+            "<tg-emoji emoji-id=\"5368766152870742501\">💎</tg-emoji> <code>Telegram Premium tariflari</code>\n\n"
+            "<tg-emoji emoji-id=\"5316742794562254812\">✨</tg-emoji> <code>1 месяц</code> <b>и</b> <code>1 год</code> <b>— вход в профиль</b>\n"
+            "<tg-emoji emoji-id=\"6039653741156633541\">🎁</tg-emoji> <code>3 месяца</code> <b>— отправляется как подарок</b>\n"
+            "<tg-emoji emoji-id=\"6039759418826952182\">🎁</tg-emoji> <code>6 месяцев</code> <b>— отправляется как подарок</b>\n"
+            "<tg-emoji emoji-id=\"6039550576042184651\">🎁</tg-emoji> <code>12 месяцев</code> <b>— отправляется как подарок</b>\n"
+            "<tg-emoji emoji-id=\"6039457435381402923\">🔒</tg-emoji> <b>Вход в профиль не требуется</b>\n\n"
+            "<tg-emoji emoji-id=\"5440770506494088011\">👇</tg-emoji> <code>Выберите нужный тариф</code>"
+        )
     
     # Создаем клавиатуру с товарами
     keyboard_buttons = []
@@ -1171,7 +1373,7 @@ async def show_premium_menu(callback: types.CallbackQuery, products, lang):
         # Сокращаем название для кнопки и добавляем цену
         if "1 oylik" in name_uz or "1 месяц" in name_ru:
             display_name = "1 oy" if lang == "uz" else "1 месяц"
-            button_text = f"⭐️ {display_name} - {price:,} UZS"
+            button_text = f"💎 {display_name} - {price:,} UZS"
         elif "1 yillik" in name_uz or "1 год" in name_ru:
             display_name = "1 yil" if lang == "uz" else "1 год"
             button_text = f"⭐️ {display_name} - {price:,} UZS"
@@ -1183,7 +1385,7 @@ async def show_premium_menu(callback: types.CallbackQuery, products, lang):
             button_text = f"🎁 {display_name} - {price:,} UZS"
         elif "12 oylik" in name_uz or "12 месяцев" in name_ru:
             display_name = "12 oy" if lang == "uz" else "12 месяцев"
-            button_text = f"🎁 {display_name} - {price:,} UZS"
+            button_text = f"💎 {display_name} - {price:,} UZS"
         else:
             # Убираем скобки с типом для кнопки
             clean_name = name.replace("(Akkaunt orqali)", "").replace("(Через аккаунт)", "").replace("(Akkauntsiz)", "").replace("(Без аккаунта)", "").strip()
@@ -1205,42 +1407,43 @@ async def show_premium_menu(callback: types.CallbackQuery, products, lang):
     
     keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
     
-    # Пробуем отправить видео premium.mp4 если файл существует
+    # Пробуем отправить фото premium.png если файл существует
     try:
         import os
         if hasattr(config, 'PREMIUM_VIDEO') and os.path.exists(config.PREMIUM_VIDEO):
             # Удаляем старое сообщение
             await callback.message.delete()
             
-            # Отправляем видео с подписью
-            video = types.FSInputFile(config.PREMIUM_VIDEO)
-            await bot.send_video(
+            # Отправляем фото с подписью
+            photo = types.FSInputFile(config.PREMIUM_VIDEO)
+            await bot.send_photo(
                 callback.from_user.id,
-                video=video,
+                photo=photo,
                 caption=text,
                 reply_markup=keyboard,
                 parse_mode="HTML"
             )
         else:
-            # Если видео нет, отправляем новое сообщение
+            # Если фото нет, отправляем новое сообщение
             try:
                 await callback.message.delete()
             except:
                 pass
             await callback.message.answer(text, reply_markup=keyboard, parse_mode="HTML")
     except Exception as e:
-        logging.error(f"Premium video error: {e}")
+        logging.error(f"Premium photo error: {e}")
         # Если ошибка, отправляем новое сообщение
         try:
             await callback.message.delete()
         except:
             pass
         await callback.message.answer(text, reply_markup=keyboard, parse_mode="HTML")
-    
-    await callback.answer()
 
 async def show_stars_menu(callback: types.CallbackQuery, products, lang):
     """Показать специальное меню для Stars"""
+    # Отвечаем на callback сразу, чтобы избежать таймаута
+    await callback.answer()
+    
     if lang == "uz":
         text = (
             "<tg-emoji emoji-id=\"5936259309812846957\">🌟</tg-emoji> <b>Telegram Stars</b>\n\n"
@@ -1326,8 +1529,97 @@ async def show_stars_menu(callback: types.CallbackQuery, products, lang):
     else:
         # Если фото нет, отправляем текстовое сообщение
         await callback.message.answer(text, reply_markup=keyboard, parse_mode="HTML")
-    
+
+async def show_gifts_menu(callback: types.CallbackQuery, products, lang):
+    """Показать специальное меню для Gifts с эмодзи"""
+    # Отвечаем на callback сразу, чтобы избежать таймаута
     await callback.answer()
+    
+    if lang == "uz":
+        text = (
+            "<b><tg-emoji emoji-id=\"5328239721933985602\">🎁</tg-emoji> Telegram Gifts</b>\n\n"
+            "<tg-emoji emoji-id=\"5316887736823591263\">👤</tg-emoji> Giftlarni starsga almashtirish mumkun boladi profil orqali jonatiladi\n\n"
+            "<tg-emoji emoji-id=\"5821453562680448557\">🔐</tg-emoji> Admini profili orqali jonatiladi @StarPayUzAdmin dan\n\n"
+            "<code>Kerakli tugmani tanlang</code><tg-emoji emoji-id=\"6158862632926319619\">👉</tg-emoji>"
+        )
+    else:
+        text = (
+            "<b><tg-emoji emoji-id=\"5328239721933985602\">🎁</tg-emoji> Telegram Gifts</b>\n\n"
+            "<tg-emoji emoji-id=\"5316887736823591263\">👤</tg-emoji> Подарки можно обменять на stars, отправляются через профиль\n\n"
+            "<tg-emoji emoji-id=\"5821453562680448557\">🔐</tg-emoji> Отправляется через профиль администратора @StarPayUzAdmin\n\n"
+            "<code>Выберите нужную кнопку</code><tg-emoji emoji-id=\"6158862632926319619\">👉</tg-emoji>"
+        )
+    
+    # Маппинг подарков на эмодзи
+    gift_emojis = {
+        15: ["💝", "🧸"],  # 15 stars - 2 варианта
+        25: ["🎁", "🌹"],  # 25 stars - 2 варианта
+        50: ["🎂", "🚀", "🍾", "💐"],  # 50 stars - 4 варианта
+        100: ["💎", "🏆", "💍"]  # 100 stars - 3 варианта
+    }
+    
+    # Счетчики для каждого количества stars
+    counters = {15: 0, 25: 0, 50: 0, 100: 0}
+    
+    # Создаем клавиатуру с товарами
+    keyboard_buttons = []
+    row = []
+    
+    for product in products:
+        product_id, name_uz, name_ru, desc_uz, desc_ru, price = product
+        
+        # Определяем количество stars из названия
+        import re
+        match = re.search(r'(\d+)\s*⭐', name_uz)
+        if not match:
+            match = re.search(r'(\d+)\s*stars', name_uz.lower())
+        
+        if match:
+            stars_count = int(match.group(1))
+            
+            # Получаем эмодзи для этого количества stars
+            if stars_count in gift_emojis:
+                emoji_list = gift_emojis[stars_count]
+                emoji_index = counters[stars_count] % len(emoji_list)
+                emoji = emoji_list[emoji_index]
+                counters[stars_count] += 1
+                
+                # Форматируем цену
+                if lang == "uz":
+                    button_text = f"{emoji} | {stars_count} ⭐️ — {price:,} uzs"
+                else:
+                    button_text = f"{emoji} | {stars_count} ⭐️ — {price:,} uzs"
+            else:
+                # Если не нашли маппинг, используем стандартный формат
+                button_text = f"🎁 {stars_count} ⭐️ — {price:,} uzs"
+        else:
+            # Если не смогли определить количество stars
+            button_text = f"🎁 {name_uz if lang == 'uz' else name_ru} — {price:,} uzs"
+        
+        row.append(InlineKeyboardButton(text=button_text, callback_data=f"product_{product_id}"))
+        
+        # Добавляем по 2 кнопки в ряд
+        if len(row) == 2:
+            keyboard_buttons.append(row)
+            row = []
+    
+    # Добавляем последний ряд если он не пустой
+    if row:
+        keyboard_buttons.append(row)
+    
+    # Добавляем кнопку назад
+    from translations import get_text_simple
+    keyboard_buttons.append([InlineKeyboardButton(text=get_text_simple(lang, "back_menu"), callback_data="back_to_menu")])
+    
+    keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
+    
+    # Удаляем старое сообщение и отправляем новое
+    try:
+        await callback.message.delete()
+    except:
+        pass
+    
+    await callback.message.answer(text, reply_markup=keyboard, parse_mode="HTML")
 
 @dp.callback_query(F.data == "custom_stars")
 async def custom_stars_selected(callback: types.CallbackQuery, state: FSMContext):
@@ -1461,74 +1753,89 @@ async def product_selected(callback: types.CallbackQuery, state: FSMContext):
             f"💰 <b>Цена:</b> {price:,} UZS\n\n"
         )
     
-    # Для Premium - проверяем тип (с аккаунтом или без)
+    # Для Premium - простой формат как у Stars
     if category == "premium":
-        # Проверяем нужен ли вход в аккаунт
-        needs_account = "Akkaunt" in name_uz or "аккаунт" in name_ru
+        if lang == "uz":
+            text = (
+                f"<tg-emoji emoji-id=\"5368766152870742501\">💎</tg-emoji> <b>{name} = {price:,} so'm</b>\n\n"
+                f"<b>{name} ni qaysi profilingizga olmoqchisiz?</b>\n\n"
+                f"Usernameni @ bilan yozing... <tg-emoji emoji-id=\"5197269100878907942\">✍🏻</tg-emoji>"
+            )
+        else:
+            text = (
+                f"<tg-emoji emoji-id=\"5368766152870742501\">💎</tg-emoji> <b>{name} = {price:,} сум</b>\n\n"
+                f"<b>На какой профиль хотите получить {name}?</b>\n\n"
+                f"Напишите username с @... <tg-emoji emoji-id=\"5197269100878907942\">✍🏻</tg-emoji>"
+            )
         
-        if needs_account:
-            # Для вариантов с аккаунтом - запрашиваем номер телефона
-            if lang == "uz":
-                text += (
-                    f"\n📱 <b>Iltimos, telefon raqamingizni yuboring:</b>\n"
-                    f"Format: +998901234567\n\n"
-                    f"⚠️ <b>Muhim:</b> Akkauntingizga kirish uchun kod yuboriladi"
+        await safe_edit_message(callback, text)
+        await state.set_state(OrderStates.waiting_for_username)
+        await state.update_data(
+            product_id=product_id,
+            category=category,
+            service_name=name,
+            price=price
+        )
+        await callback.answer()
+        return
+    
+    # Для Gifts - запрашиваем username
+    elif category == "gifts":
+        # Определяем эмодзи подарка по названию
+        gift_emoji_map = {
+            "💝": "5283228279988309088",  # сердце
+            "🧸": "5280598054901145762",  # мишка
+            "🎁": "5280615440928758599",  # подарок
+            "🌹": "5280947338821524402",  # роза
+            "🎂": "5280659198055572187",  # торт
+            "🚀": "5283080528818360566",  # ракета
+            "🍾": "5451905784734574339",  # шампанское
+            "💐": "5280774333243873175",  # букет
+            "💎": "5368343974765411150",  # алмаз
+            "🏆": "5280769763398671636",  # кубок
+            "💍": "5280651583078556009",  # кольцо
+        }
+        
+        # Извлекаем эмодзи из названия подарка
+        import re
+        emoji_match = re.search(r'([💝🧸🎁🌹🎂🚀🍾💐💎🏆💍])', name)
+        gift_emoji_id = None
+        if emoji_match:
+            emoji_char = emoji_match.group(1)
+            gift_emoji_id = gift_emoji_map.get(emoji_char)
+        
+        # Извлекаем количество stars
+        stars_match = re.search(r'(\d+)\s*⭐', name)
+        stars_count = stars_match.group(1) if stars_match else "?"
+        
+        if lang == "uz":
+            if gift_emoji_id:
+                text = (
+                    f"<tg-emoji emoji-id=\"5208966130776948094\">✅</tg-emoji> <tg-emoji emoji-id=\"{gift_emoji_id}\">{emoji_char}</tg-emoji> <b>{stars_count} ⭐️ – Hadya</b>\n\n"
+                    f"<tg-emoji emoji-id=\"4965219701572503640\">💰</tg-emoji> <b>{price:,} UZS</b>\n\n"
+                    f"<tg-emoji emoji-id=\"5818715087237549366\">👤</tg-emoji> <b>Username: @username yoki username</b>\n\n"
+                    f"<tg-emoji emoji-id=\"6271786398404055377\">⚠️</tg-emoji> <b>Sovgʻa faqat shu akkauntga yuboriladi</b>"
                 )
             else:
                 text += (
-                    f"\n📱 <b>Пожалуйста, отправьте номер телефона:</b>\n"
-                    f"Формат: +998901234567\n\n"
-                    f"⚠️ <b>Важно:</b> На номер придет код для входа в аккаунт"
-                )
-            
-            await safe_edit_message(callback, text)
-            await state.set_state(OrderStates.waiting_for_phone_number)
-            await state.update_data(
-                product_id=product_id,
-                category=category,
-                service_name=name,
-                price=price,
-                needs_account=True
-            )
-        else:
-            # Для вариантов без входа в аккаунт (3, 6, 12 месяцев) - запрашиваем username
-            if lang == "uz":
-                text += (
                     f"\n👤 <b>Iltimos, username yuboring:</b>\n"
                     f"Format: @username yoki username\n\n"
-                    f"⚠️ <b>Muhim:</b> Premium shu akkauntga yuboriladi"
+                    f"⚠️ <b>Muhim:</b> Sovg'a shu akkauntga yuboriladi"
+                )
+        else:
+            if gift_emoji_id:
+                text = (
+                    f"<tg-emoji emoji-id=\"5208966130776948094\">✅</tg-emoji> <tg-emoji emoji-id=\"{gift_emoji_id}\">{emoji_char}</tg-emoji> <b>{stars_count} ⭐️ – Подарок</b>\n\n"
+                    f"<tg-emoji emoji-id=\"4965219701572503640\">💰</tg-emoji> <b>{price:,} UZS</b>\n\n"
+                    f"<tg-emoji emoji-id=\"5818715087237549366\">👤</tg-emoji> <b>Username: @username или username</b>\n\n"
+                    f"<tg-emoji emoji-id=\"6271786398404055377\">⚠️</tg-emoji> <b>Подарок будет отправлен только на этот аккаунт</b>"
                 )
             else:
                 text += (
                     f"\n👤 <b>Пожалуйста, отправьте username:</b>\n"
                     f"Формат: @username или username\n\n"
-                    f"⚠️ <b>Важно:</b> Premium будет отправлен на этот аккаунт"
+                    f"⚠️ <b>Важно:</b> Подарок будет отправлен на этот аккаунт"
                 )
-            
-            await safe_edit_message(callback, text)
-            await state.set_state(OrderStates.waiting_for_username)
-            await state.update_data(
-                product_id=product_id,
-                category=category,
-                service_name=name,
-                price=price,
-                needs_account=False
-            )
-    
-    # Для Gifts - запрашиваем username
-    elif category == "gifts":
-        if lang == "uz":
-            text += (
-                f"\n👤 <b>Iltimos, username yuboring:</b>\n"
-                f"Format: @username yoki username\n\n"
-                f"⚠️ <b>Muhim:</b> Sovg'a shu akkauntga yuboriladi"
-            )
-        else:
-            text += (
-                f"\n👤 <b>Пожалуйста, отправьте username:</b>\n"
-                f"Формат: @username или username\n\n"
-                f"⚠️ <b>Важно:</b> Подарок будет отправлен на этот аккаунт"
-            )
         
         await safe_edit_message(callback, text)
         await state.set_state(OrderStates.waiting_for_username)
@@ -1644,8 +1951,39 @@ async def help_callback(callback: types.CallbackQuery):
 @dp.callback_query(F.data == "contact")
 async def contact_callback(callback: types.CallbackQuery):
     lang = database.get_user_language(callback.from_user.id)
-    contact_text = get_premium_help(lang)  # Используем ту же функцию помощи
-    await safe_edit_message(callback, contact_text, reply_markup=keyboards.back_to_menu(lang))
+    
+    admin_username = "StarPayUzAdmin"
+    
+    # Создаем inline кнопку для перехода в личку админа
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(
+            text="💬 Adminga yozish" if lang == "uz" else "💬 Написать админу",
+            url=f"https://t.me/{admin_username}"
+        )],
+        [InlineKeyboardButton(
+            text=get_text_simple(lang, "back_menu"),
+            callback_data="back_to_menu"
+        )]
+    ])
+    
+    if lang == "uz":
+        text = (
+            "📞 <b>Aloqa</b>\n\n"
+            "Quyidagi tugmani bosing va adminga yozing:\n\n"
+            f"👤 Admin: @{admin_username}\n"
+            f"💬 Xabar: <code>Salom @StarPayUz_bot boyicha yozyapman</code>\n\n"
+            "Xabarni nusxalash uchun ustiga bosing ☝️"
+        )
+    else:
+        text = (
+            "📞 <b>Связаться</b>\n\n"
+            "Нажмите кнопку ниже и напишите админу:\n\n"
+            f"👤 Админ: @{admin_username}\n"
+            f"💬 Сообщение: <code>Salom @StarPayUz_bot boyicha yozyapman</code>\n\n"
+            "Нажмите на сообщение чтобы скопировать ☝️"
+        )
+    
+    await safe_edit_message(callback, text, reply_markup=keyboard)
     await callback.answer()
 
 @dp.callback_query(F.data == "statistics")

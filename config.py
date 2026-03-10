@@ -30,7 +30,7 @@ import os
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 BANNER_FILE = os.path.join(BASE_DIR, "start.png")
 CARD_IMAGE = os.path.join(BASE_DIR, "humo.png")
-PREMIUM_VIDEO = os.path.join(BASE_DIR, "premium.mp4")
+PREMIUM_VIDEO = os.path.join(BASE_DIR, "premium.png")
 STARS_PHOTO = os.path.join(BASE_DIR, "stars.png")
 
 # Реквизиты для оплаты
@@ -81,10 +81,30 @@ BOOST_90_DAYS = 25000     # за 1 штуку
 BOOST_MIN_QUANTITY = 10   # минимальное количество
 
 # Telegram Gifts
-GIFT_15_STARS = 5000      # 15 ⭐️ подарок
-GIFT_25_STARS = 7000      # 25 ⭐️ подарок
-GIFT_50_STARS = 15000     # 50 ⭐️ подарок
-GIFT_100_STARS = 25000    # 100 ⭐️ подарок
+# 15 stars подарки
+GIFT_15_STARS_1 = 4000    # 💝 | 15 ⭐️
+GIFT_15_STARS_2 = 4000    # 🧸 | 15 ⭐️
+
+# 25 stars подарки
+GIFT_25_STARS_1 = 6000    # 🎁 | 25 ⭐️
+GIFT_25_STARS_2 = 6000    # 🌹 | 25 ⭐️
+
+# 50 stars подарки
+GIFT_50_STARS_1 = 13000   # 🎂 | 50 ⭐️
+GIFT_50_STARS_2 = 13000   # 🚀 | 50 ⭐️
+GIFT_50_STARS_3 = 13000   # 🍾 | 50 ⭐️
+GIFT_50_STARS_4 = 13000   # 💐 | 50 ⭐️
+
+# 100 stars подарки
+GIFT_100_STARS_1 = 22000  # 💎 | 100 ⭐️
+GIFT_100_STARS_2 = 22000  # 🏆 | 100 ⭐️
+GIFT_100_STARS_3 = 22000  # 💍 | 100 ⭐️
+
+# Старые переменные для совместимости
+GIFT_15_STARS = GIFT_15_STARS_1
+GIFT_25_STARS = GIFT_25_STARS_1
+GIFT_50_STARS = GIFT_50_STARS_1
+GIFT_100_STARS = GIFT_100_STARS_1
 
 # Virtual Numbers (виртуальные номера)
 PHONE_KENYA = 12000       # Кения
@@ -156,10 +176,17 @@ BOOST_PRICES_PER_UNIT = {
 
 # Цены Gifts в словаре
 GIFTS_PRICES = {
-    "15_stars": GIFT_15_STARS,
-    "25_stars": GIFT_25_STARS,
-    "50_stars": GIFT_50_STARS,
-    "100_stars": GIFT_100_STARS
+    "15_stars_1": GIFT_15_STARS_1,  # 💝
+    "15_stars_2": GIFT_15_STARS_2,  # 🧸
+    "25_stars_1": GIFT_25_STARS_1,  # 🎁
+    "25_stars_2": GIFT_25_STARS_2,  # 🌹
+    "50_stars_1": GIFT_50_STARS_1,  # 🎂
+    "50_stars_2": GIFT_50_STARS_2,  # 🚀
+    "50_stars_3": GIFT_50_STARS_3,  # 🍾
+    "50_stars_4": GIFT_50_STARS_4,  # 💐
+    "100_stars_1": GIFT_100_STARS_1,  # 💎
+    "100_stars_2": GIFT_100_STARS_2,  # 🏆
+    "100_stars_3": GIFT_100_STARS_3,  # 💍
 }
 
 # Цены Virtual Numbers в словаре
