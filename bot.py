@@ -568,7 +568,7 @@ async def username_received(message: types.Message, state: FSMContext):
             # Создаем кнопки подтверждения и отмены
             keyboard = InlineKeyboardMarkup(inline_keyboard=[
                 [
-                    InlineKeyboardButton(text="✅ Tasdiqlash" if lang == "uz" else "✅ Подтвердить", callback_data="confirm_stars_payment"),
+                    InlineKeyboardButton(text="✅ Tasdiqlash" if lang == "uz" else "✅ Подтвердить", callback_data=f"confirm_stars_{price}"),
                     InlineKeyboardButton(text="❌ Bekor qilish" if lang == "uz" else "❌ Отменить", callback_data="cancel_stars_payment")
                 ]
             ])
@@ -675,12 +675,18 @@ async def cancel_order_after_timeout(user_id, order_id, state: FSMContext, timeo
             await bot.send_message(user_id, text, parse_mode="HTML")
             await state.clear()
 
-@dp.callback_query(F.data == "confirm_stars_payment")
+@dp.callback_query(F.data.startswith("confirm_stars_"))
 async def confirm_stars_payment(callback: types.CallbackQuery, state: FSMContext):
     """Подтверждение оплаты Stars - показываем карту и просим отправить чек"""
     lang = database.get_user_language(callback.from_user.id)
     data = await state.get_data()
-    price = data.get('price', 0)
+
+    # Берём цену из callback_data (надёжно) или из state как fallback
+    try:
+        price = int(callback.data.replace("confirm_stars_", ""))
+    except:
+        price = data.get('price', 0)
+
     username = data.get('username', '')
     
     if lang == "uz":
@@ -705,6 +711,8 @@ async def confirm_stars_payment(callback: types.CallbackQuery, state: FSMContext
     # Отправляем БЕЗ картинки, только текст
     await bot.send_message(callback.from_user.id, text, parse_mode="HTML")
     
+    # Обновляем price в state чтобы payment_proof_received получил правильную цену
+    await state.update_data(price=price)
     await state.set_state(OrderStates.waiting_for_payment_proof)
     await callback.answer()
 
