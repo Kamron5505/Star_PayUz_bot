@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import asyncio
 import logging
+import sqlite3
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
@@ -134,8 +135,7 @@ async def cmd_start(message: types.Message):
     if not await check_subscription(user.id):
         # Сохраняем реферера для начисления после подписки
         if referrer_id and is_new:
-            import sqlite3 as _sqlite3
-            _conn = _sqlite3.connect(config.DATABASE_FILE)
+            _conn = sqlite3.connect(config.DATABASE_FILE)
             _conn.execute('UPDATE users SET referred_by = ? WHERE user_id = ? AND referred_by IS NULL', (referrer_id, user.id))
             _conn.commit()
             _conn.close()
@@ -250,7 +250,7 @@ async def check_sub_callback(callback: types.CallbackQuery):
     
     if await check_subscription(callback.from_user.id):
         # Начисляем реферальный бонус если есть реферер
-        conn = __import__('sqlite3').connect(config.DATABASE_FILE)
+        conn = sqlite3.connect(config.DATABASE_FILE)
         cur = conn.cursor()
         cur.execute('SELECT referred_by FROM users WHERE user_id = ?', (callback.from_user.id,))
         row = cur.fetchone()
@@ -536,7 +536,7 @@ async def username_received(message: types.Message, state: FSMContext):
         category = data.get('category', '')
         stars_count = data.get('stars_count', 0)
 
-        if category == "stars" and stars_count > 0:
+        if category == "stars":
             # Для Stars показываем сводку заказа с кнопками подтверждения
             import random
             import string
@@ -1248,10 +1248,12 @@ async def stars_count_received(message: types.Message, state: FSMContext):
     price_per_star = 245
     total_price = stars_count * price_per_star
     
-    # Сохраняем количество и общую сумму
+    # Сохраняем количество, общую сумму и обновляем service_name
     await state.update_data(
         stars_count=stars_count,
-        price=total_price
+        price=total_price,
+        category="stars",
+        service_name=f"⭐ {stars_count} Stars"
     )
     
     data = await state.get_data()
@@ -2656,7 +2658,7 @@ async def admin_do_publish_order(callback: types.CallbackQuery):
         return
     order_id = int(callback.data.replace("pub_order_", ""))
 
-    conn = __import__('sqlite3').connect(config.DATABASE_FILE)
+    conn = sqlite3.connect(config.DATABASE_FILE)
     cur = conn.cursor()
     cur.execute('''
         SELECT o.order_id, o.user_id, u.username, u.first_name, o.service, o.amount, o.status, o.created_at
@@ -2773,7 +2775,7 @@ async def exit_admin(message: types.Message, state: FSMContext):
             banner_path = config.BANNER_FILE
             if os.path.exists(banner_path):
                 photo = types.FSInputFile(banner_path)
-                await mФessage.answer_photo(photo=photo, caption=welcome_text, reply_markup=keyboards.main_menu(lang), parse_mode="HTML")
+                await message.answer_photo(photo=photo, caption=welcome_text, reply_markup=keyboards.main_menu(lang), parse_mode="HTML")
             else:
                 await message.answer(welcome_text, reply_markup=keyboards.main_menu(lang), parse_mode="HTML")
         else:
