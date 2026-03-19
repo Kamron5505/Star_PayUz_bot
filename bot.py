@@ -2402,14 +2402,7 @@ async def cmd_shop(message: types.Message):
 
 @dp.message(F.text == "📊 Статистика")
 async def admin_stats(message: types.Message, state: FSMContext):
-    """Статистика бота"""
     if message.from_user.id not in config.ADMIN_IDS:
-        return
-    
-    # Проверяем авторизацию
-    data = await state.get_data()
-    if not data.get('admin_authorized'):
-        await message.answer("❌ Сначала авторизуйтесь: /admin")
         return
     
     user_count = database.get_user_count()
@@ -2427,14 +2420,7 @@ async def admin_stats(message: types.Message, state: FSMContext):
 
 @dp.message(F.text == "📝 Заказы")
 async def admin_orders(message: types.Message, state: FSMContext):
-    """Список заказов"""
     if message.from_user.id not in config.ADMIN_IDS:
-        return
-    
-    # Проверяем авторизацию
-    data = await state.get_data()
-    if not data.get('admin_authorized'):
-        await message.answer("❌ Сначала авторизуйтесь: /admin")
         return
     
     orders = database.get_pending_orders()
@@ -2551,12 +2537,7 @@ async def reject_order(callback: types.CallbackQuery):
 
 @dp.message(F.text == "🗑 Удалить заказы")
 async def admin_delete_orders(message: types.Message, state: FSMContext):
-    """Управление удалением заказов"""
     if message.from_user.id not in config.ADMIN_IDS:
-        return
-    data = await state.get_data()
-    if not data.get('admin_authorized'):
-        await message.answer("❌ Сначала авторизуйтесь: /admin")
         return
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
@@ -2623,12 +2604,7 @@ async def admin_cancel_delete(callback: types.CallbackQuery):
 
 @dp.message(F.text == "📣 Опубликовать заказ")
 async def admin_publish_order(message: types.Message, state: FSMContext):
-    """Опубликовать заказ в канал"""
     if message.from_user.id not in config.ADMIN_IDS:
-        return
-    data = await state.get_data()
-    if not data.get('admin_authorized'):
-        await message.answer("❌ Сначала авторизуйтесь: /admin")
         return
 
     orders = database.get_all_orders(limit=20)
@@ -2695,14 +2671,7 @@ async def admin_do_publish_order(callback: types.CallbackQuery):
 
 @dp.message(F.text == "📢 Рассылка")
 async def start_broadcast(message: types.Message, state: FSMContext):
-    """Начать рассылку"""
     if message.from_user.id not in config.ADMIN_IDS:
-        return
-    
-    # Проверяем авторизацию
-    data = await state.get_data()
-    if not data.get('admin_authorized'):
-        await message.answer("❌ Сначала авторизуйтесь: /admin")
         return
     
     await message.answer(
