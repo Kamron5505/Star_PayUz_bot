@@ -2812,98 +2812,25 @@ async def cmd_rules(message: types.Message):
 
 @dp.message(Command("admin"))
 async def cmd_admin(message: types.Message, state: FSMContext):
-    print(f"[DEBUG] /admin command from user {message.from_user.id}, ADMIN_IDS: {config.ADMIN_IDS}")
-    
     if message.from_user.id not in config.ADMIN_IDS:
         await message.answer("❌ У вас нет доступа к админ панели!")
-        print(f"[DEBUG] Access denied for user {message.from_user.id}")
         return
-    
-    # Проверяем авторизацию
-    data = await state.get_data()
-    print(f"[DEBUG] State data for user {message.from_user.id}: {data}")
-    
-    if data.get('admin_authorized'):
-        # Уже авторизован
-        print(f"[DEBUG] User {message.from_user.id} already authorized")
-        await message.answer(
-            "🔐 <b>Админ панель Star_payuz</b>\n\n"
-            "Выберите действие:",
-            reply_markup=keyboards.admin_menu(),
-            parse_mode="HTML"
-        )
-    else:
-        # Запрашиваем логин
-        print(f"[DEBUG] Requesting login from user {message.from_user.id}")
-        await message.answer(
-            "🔐 <b>Вход в админ панель</b>\n\n"
-            "Введите логин:",
-            parse_mode="HTML"
-        )
-        await state.set_state(AdminAuthStates.waiting_for_login)
-        print(f"[DEBUG] State set to waiting_for_login for user {message.from_user.id}")
+
+    await state.clear()
+    await message.answer(
+        "🔐 <b>Админ панель Star_payuz</b>\n\n"
+        "Выберите действие:",
+        reply_markup=keyboards.admin_menu(),
+        parse_mode="HTML"
+    )
 
 @dp.message(AdminAuthStates.waiting_for_login)
 async def admin_login_received(message: types.Message, state: FSMContext):
-    """Получение логина"""
-    login = message.text.strip()
-    
-    print(f"[DEBUG] Admin login attempt: {login} from user {message.from_user.id}")
-    
-    if login == config.ADMIN_LOGIN:
-        await state.update_data(admin_login=login)
-        await message.answer(
-            "✅ <b>Логин принят</b>\n\n"
-            "Введите пароль:",
-            parse_mode="HTML"
-        )
-        # Явно устанавливаем состояние
-        await state.set_state(AdminAuthStates.waiting_for_password)
-        print(f"[DEBUG] State set to waiting_for_password for user {message.from_user.id}")
-    else:
-        await message.answer(
-            "❌ <b>Неверный логин!</b>\n\n"
-            "Попробуйте еще раз или /cancel для отмены",
-            parse_mode="HTML"
-        )
-        print(f"[DEBUG] Wrong login: {login}")
+    await state.clear()
 
 @dp.message(AdminAuthStates.waiting_for_password)
 async def admin_password_received(message: types.Message, state: FSMContext):
-    """Получение пароля"""
-    password = message.text.strip()
-    
-    print(f"[DEBUG] Admin password attempt from user {message.from_user.id}")
-    
-    # Удаляем сообщение с паролем для безопасности
-    try:
-        await message.delete()
-    except:
-        pass
-    
-    if password == config.ADMIN_PASSWORD:
-        await state.update_data(admin_authorized=True)
-        await state.set_state(None)
-        
-        print(f"[DEBUG] Admin authorized successfully for user {message.from_user.id}")
-        
-        await bot.send_message(
-            message.from_user.id,
-            "✅ <b>Успешная авторизация!</b>\n\n"
-            "🔐 <b>Админ панель Star_payuz</b>\n\n"
-            "Выберите действие:",
-            reply_markup=keyboards.admin_menu(),
-            parse_mode="HTML"
-        )
-    else:
-        print(f"[DEBUG] Wrong password from user {message.from_user.id}")
-        await bot.send_message(
-            message.from_user.id,
-            "❌ <b>Неверный пароль!</b>\n\n"
-            "Попробуйте еще раз: /admin",
-            parse_mode="HTML"
-        )
-        await state.clear()
+    await state.clear()
 
 @dp.message(Command("cancel"))
 async def cmd_cancel(message: types.Message, state: FSMContext):
