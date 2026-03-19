@@ -2422,30 +2422,55 @@ async def admin_stats(message: types.Message, state: FSMContext):
 async def admin_orders(message: types.Message, state: FSMContext):
     if message.from_user.id not in config.ADMIN_IDS:
         return
-    
-    orders = database.get_pending_orders()
-    
+
+    # Показываем все заказы (не только pending)
+    orders = database.get_all_orders(limit=30)
+
     if not orders:
-        await message.answer("📝 Нет ожидающих заказов")
+        await message.answer("📝 Заказов нет")
         return
-    
+
+    status_map = {
+        "pending":  "⏳ Kutilmoqda",
+        "approved": "✅ Tasdiqlandi",
+        "rejected": "❌ Rad etildi",
+    }
+
     for order in orders:
-        order_id, user_id, username, service, amount, payment_method, created_at = order
-        
+        order_id, user_id, username, first_name, service, amount, status, created_at = order
+        user_tag = f"@{username}" if username else first_name
+        status_label = status_map.get(status, status)
+
         order_text = (
             f"📝 <b>Заказ #{order_id}</b>\n\n"
-            f"👤 Пользователь: @{username or 'без username'}\n"
+            f"👤 Пользователь: {user_tag}\n"
             f"🛍️ Услуга: {service}\n"
             f"💰 Сумма: {amount:,} UZS\n"
-            f"<tg-emoji emoji-id=\"5472250091332993630\">💳</tg-emoji> Способ оплаты: {payment_method}\n"
+            f"📊 Статус: {status_label}\n"
             f"📅 Дата: {created_at}"
         )
-        
-        await message.answer(
-            order_text,
-            reply_markup=keyboards.order_actions(order_id),
-            parse_mode="HTML"
-        )
+
+        # Для pending показываем approve/reject, для остальных только удаление
+        if status == "pending":
+            kb = keyboards.order_actions(order_id)
+        else:
+            kb = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🗑 Удалить", callback_data=f"del_order_{order_id}")]
+            ])
+
+        await message.answer(order_text, reply_markup=kb, parse_mode="HTML")
+
+@dp.callback_query(F.data.startswith("del_order_"))
+async def del_single_order(callback: types.CallbackQuery):
+    if callback.from_user.id not in config.ADMIN_IDS:
+        return
+    order_id = int(callback.data.replace("del_order_", ""))
+    database.delete_order(order_id)
+    try:
+        await callback.message.delete()
+    except:
+        pass
+    await callback.answer(f"🗑 Заказ #{order_id} удалён")
 
 @dp.callback_query(F.data.startswith("approve_"))
 async def approve_order(callback: types.CallbackQuery):
