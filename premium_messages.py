@@ -48,7 +48,7 @@ def get_premium_service_selected(service, price, lang="ru"):
 def get_premium_payment_info(service, price, method, lang="ru"):
     """Информация об оплате с Premium эмодзи"""
     if lang == "uz":
-        return f'''<tg-emoji emoji-id="5456390099958773299">💳</tg-emoji> <b>To'lov ma'lumotlari ({method})</b>
+        return f'''<tg-emoji emoji-id="5472250091332993630">💳</tg-emoji> <b>To'lov ma'lumotlari ({method})</b>
 
 <tg-emoji emoji-id="5458488840022933066">🛍️</tg-emoji> Xizmat: <b>{service}</b>
 <tg-emoji emoji-id="5456390099958773299">💰</tg-emoji> Summa: <b>{price:,} UZS</b>
@@ -60,9 +60,9 @@ def get_premium_payment_info(service, price, method, lang="ru"):
 
 <tg-emoji emoji-id="5456390099958773299">📸</tg-emoji> To'lovdan keyin chek rasmini shu chatga yuboring.
 
-<tg-emoji emoji-id="5456390099958773299">⚠️</tg-emoji> <b>Muhim:</b> Rasmda summa va vaqt ko'rinishi kerak!'''
+<tg-emoji emoji-id="5461137215641895106">⚠️</tg-emoji> <b>Muhim:</b> Rasmda summa va vaqt ko'rinishi kerak!'''
     else:
-        return f'''<tg-emoji emoji-id="5456390099958773299">💳</tg-emoji> <b>Реквизиты для оплаты ({method})</b>
+        return f'''<tg-emoji emoji-id="5472250091332993630">💳</tg-emoji> <b>Реквизиты для оплаты ({method})</b>
 
 <tg-emoji emoji-id="5458488840022933066">🛍️</tg-emoji> Услуга: <b>{service}</b>
 <tg-emoji emoji-id="5456390099958773299">💰</tg-emoji> Сумма: <b>{price:,} UZS</b>
@@ -74,69 +74,59 @@ def get_premium_payment_info(service, price, method, lang="ru"):
 
 <tg-emoji emoji-id="5456390099958773299">📸</tg-emoji> После оплаты отправьте скриншот чека в этот чат.
 
-<tg-emoji emoji-id="5456390099958773299">⚠️</tg-emoji> <b>Важно:</b> На скриншоте должна быть видна сумма и время платежа!'''
+<tg-emoji emoji-id="5461137215641895106">⚠️</tg-emoji> <b>Важно:</b> На скриншоте должна быть видна сумма и время платежа!'''
 
 
 def get_premium_order_accepted(order_id, lang="ru"):
     """Подтверждение заказа с Premium эмодзи"""
     if lang == "uz":
-        return f'''✅ <b>Buyurtmangiz #{order_id} qabul qilindi!</b>
-
-⏳ Administrator tekshiruvini kuting.
-Odatda bu 5–30 daqiqa davom etadi.
-
-📬 Buyurtma tayyor bo'lgach sizga xabar beramiz.'''
+        return (
+            f"<tg-emoji emoji-id=\"5208869687286316655\">✅</tg-emoji> <b>Buyurtmangiz #{order_id} qabul qilindi!</b>\n\n"
+            f"<tg-emoji emoji-id=\"5451732530048802485\">⏳</tg-emoji> Administrator tekshiruvini kuting.\n"
+            f"Odatda bu 5–30 daqiqa davom etadi.\n\n"
+            f"<tg-emoji emoji-id=\"5350421256627838238\">📬</tg-emoji> Buyurtma tayyor bo'lgach sizga xabar beramiz."
+        )
     else:
-        return f'''✅ <b>Ваш заказ #{order_id} принят!</b>
-
-⏳ Ожидайте проверки администратором.
-Обычно это занимает 5–30 минут.
-
-📬 Мы уведомим вас, когда заказ будет обработан.'''
+        return (
+            f"<tg-emoji emoji-id=\"5208869687286316655\">✅</tg-emoji> <b>Ваш заказ #{order_id} принят!</b>\n\n"
+            f"<tg-emoji emoji-id=\"5451732530048802485\">⏳</tg-emoji> Ожидайте проверки администратором.\n"
+            f"Обычно это занимает 5–30 минут.\n\n"
+            f"<tg-emoji emoji-id=\"5350421256627838238\">📬</tg-emoji> Мы уведомим вас, когда заказ будет обработан."
+        )
 
 
 def get_premium_help(lang="ru"):
     """Помощь с Premium эмодзи"""
     if lang == "uz":
-        return f'''<tg-emoji emoji-id="5456390099958773299">ℹ️</tg-emoji> <b>Star_payuz — Premium & Stars Xizmati</b>
-
-<tg-emoji emoji-id="5456390099958773299">📌</tg-emoji> Buyruqlar:
-
-/start — Asosiy menyu
-/help — Yordam
-/qoida — Qoidalar
-/admin — Admin panel
-
-<tg-emoji emoji-id="5456390099958773299">💡</tg-emoji> Bot imkoniyatlari:
-
-<tg-emoji emoji-id="5936259309812846957">🌟</tg-emoji> Telegram Stars to'ldirish
-<tg-emoji emoji-id="5348489165589724843">💎</tg-emoji> Telegram Premium sotib olish
-<tg-emoji emoji-id="5460991276948143687">⚡</tg-emoji> Tezkor xizmat
-<tg-emoji emoji-id="5456390099958773299">🔒</tg-emoji> Xavfsiz to'lovlar
-
-<tg-emoji emoji-id="5456390099958773299">📞</tg-emoji> Yordam: @kamron235
-
-<tg-emoji emoji-id="5460991276948143687">⚡</tg-emoji> Buyurtmalar 5–30 daqiqada bajariladi'''
+        return (
+            "<tg-emoji emoji-id=\"5461098956073222348\">🎙</tg-emoji> <b>Star_payuz — Premium & Stars xizmati</b>\n\n"
+            "<tg-emoji emoji-id=\"5317023930236549785\">📌</tg-emoji> <b>Buyruqlar:</b>\n"
+            "/start — Asosiy menyu\n"
+            "/help — Yordam\n"
+            "/qoida — Qoidalar\n\n"
+            "<tg-emoji emoji-id=\"5262844652964303985\">💡</tg-emoji> <b>Bot imkoniyatlari:</b>\n"
+            "<tg-emoji emoji-id=\"6154661321687176046\">🌟</tg-emoji> Telegram Stars to'ldirish\n"
+            "<tg-emoji emoji-id=\"5370784581341422520\">⭐️</tg-emoji> Telegram Premium sotib olish\n"
+            "<tg-emoji emoji-id=\"5199785165735367039\">⚡️</tg-emoji> Tez va qulay xizmat\n"
+            "<tg-emoji emoji-id=\"6039457435381402923\">🔒</tg-emoji> Xavfsiz to'lov\n\n"
+            "<tg-emoji emoji-id=\"5201990176175299013\">📞</tg-emoji> Yordam: @StarPayUzAdmin || @kamron235\n\n"
+            "<tg-emoji emoji-id=\"5382194935057372936\">⏱️</tg-emoji> Buyurtmalar 5–30 daqiqada bajariladi"
+        )
     else:
-        return f'''<tg-emoji emoji-id="5456390099958773299">ℹ️</tg-emoji> <b>Star_payuz — Premium & Stars Service</b>
-
-<tg-emoji emoji-id="5456390099958773299">📌</tg-emoji> Доступные команды:
-
-/start — Главное меню
-/help — Помощь
-/qoida — Правила
-/admin — Админ панель
-
-<tg-emoji emoji-id="5456390099958773299">💡</tg-emoji> Возможности бота:
-
-<tg-emoji emoji-id="5936259309812846957">🌟</tg-emoji> Пополнение Telegram Stars
-<tg-emoji emoji-id="5348489165589724843">💎</tg-emoji> Покупка Telegram Premium
-<tg-emoji emoji-id="5460991276948143687">⚡</tg-emoji> Быстрое обслуживание
-<tg-emoji emoji-id="5456390099958773299">🔒</tg-emoji> Безопасные платежи
-
-<tg-emoji emoji-id="5456390099958773299">📞</tg-emoji> Поддержка: @kamron235
-
-<tg-emoji emoji-id="5460991276948143687">⚡</tg-emoji> Обработка заказов: 5–30 минут'''
+        return (
+            "<tg-emoji emoji-id=\"5461098956073222348\">🎙</tg-emoji> <b>Star_payuz — Premium & Stars сервис</b>\n\n"
+            "<tg-emoji emoji-id=\"5317023930236549785\">📌</tg-emoji> <b>Команды:</b>\n"
+            "/start — Главное меню\n"
+            "/help — Помощь\n"
+            "/qoida — Правила\n\n"
+            "<tg-emoji emoji-id=\"5262844652964303985\">💡</tg-emoji> <b>Возможности бота:</b>\n"
+            "<tg-emoji emoji-id=\"6154661321687176046\">🌟</tg-emoji> Пополнение Telegram Stars\n"
+            "<tg-emoji emoji-id=\"5370784581341422520\">⭐️</tg-emoji> Покупка Telegram Premium\n"
+            "<tg-emoji emoji-id=\"5199785165735367039\">⚡️</tg-emoji> Быстрый и удобный сервис\n"
+            "<tg-emoji emoji-id=\"6039457435381402923\">🔒</tg-emoji> Безопасная оплата\n\n"
+            "<tg-emoji emoji-id=\"5201990176175299013\">📞</tg-emoji> Поддержка: @StarPayUzAdmin || @kamron235\n\n"
+            "<tg-emoji emoji-id=\"5382194935057372936\">⏱️</tg-emoji> Заказы выполняются за 5–30 минут"
+        )
 
 
 def get_premium_category_name(category, lang="ru"):
@@ -157,10 +147,6 @@ def get_premium_category_name(category, lang="ru"):
         "gifts": {
             "uz": f'<tg-emoji emoji-id="5458488840022933066">🎁</tg-emoji> Gifts',
             "ru": f'<tg-emoji emoji-id="5458488840022933066">🎁</tg-emoji> Gifts'
-        },
-        "virtual_numbers": {
-            "uz": f'<tg-emoji emoji-id="5456390099958773299">📱</tg-emoji> Virtual numbers',
-            "ru": f'<tg-emoji emoji-id="5456390099958773299">📱</tg-emoji> Virtual numbers'
         },
         "robux": {
             "uz": f'<tg-emoji emoji-id="5458649351540712147">🎮</tg-emoji> Robux',

@@ -5,7 +5,6 @@
 import sqlite3
 from datetime import datetime
 import config
-from cache import cache_products_by_category, get_cached_products_by_category, invalidate_category_cache
 
 def init_db():
     """Инициализация базы данных"""
@@ -20,7 +19,31 @@ def init_db():
             first_name TEXT,
             join_date TEXT,
             is_subscribed INTEGER DEFAULT 0,
-            language TEXT DEFAULT 'uz'
+            language TEXT DEFAULT 'uz',
+            referred_by INTEGER DEFAULT NULL,
+            ref_balance REAL DEFAULT 0.0
+        )
+    ''')
+    
+    # Добавляем колонки если их нет (для существующих БД)
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN referred_by INTEGER DEFAULT NULL")
+    except:
+        pass
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN ref_balance REAL DEFAULT 0.0")
+    except:
+        pass
+    
+    # Таблица рефералов
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS referrals (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            referrer_id INTEGER,
+            referred_id INTEGER,
+            reward REAL DEFAULT 0.5,
+            created_at TEXT,
+            UNIQUE(referred_id)
         )
     ''')
     
@@ -196,13 +219,7 @@ def add_product(category, name_uz, name_ru, description_uz, description_ru, pric
     return product_id
 
 def get_products_by_category(category):
-    """Получить товары по категории с кэшированием"""
-    # Пробуем получить из кэша
-    cached_products = get_cached_products_by_category(category)
-    if cached_products is not None:
-        return cached_products
-    
-    # Если нет в кэше, получаем из базы
+    """Получить товары по категории"""
     conn = sqlite3.connect(config.DATABASE_FILE)
     cursor = conn.cursor()
     
@@ -215,10 +232,6 @@ def get_products_by_category(category):
     
     products = cursor.fetchall()
     conn.close()
-    
-    # Сохраняем в кэш
-    cache_products_by_category(category, products)
-    
     return products
 
 def get_all_products():
@@ -305,3 +318,89 @@ def get_product_name(product_id, lang="uz"):
         else:
             return product[3]  # name_ru
     return f"Товар #{product_id}"
+
+def add_referral(referrer_id, referred_id, reward=0.5):
+    """Начислить реферальный бонус"""
+    conn = sqlite3.connect(config.DATABASE_FILE)
+    cursor = conn.cursor()
+    try:
+        cursor.execute('''
+            INSERT OR IGNORE INTO referrals (referrer_id, referred_id, reward, created_at)
+            VALUES (?, ?, ?, ?)
+        ''', (referrer_id, referred_id, reward, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+        if cursor.rowcount > 0:
+            cursor.execute('UPDATE users SET ref_balance = ref_balance + ? WHERE user_id = ?', (reward, referrer_id))
+            conn.commit()
+            conn.close()
+            return True
+    except:
+        pass
+    conn.close()
+    return False
+
+def get_referral_stats(user_id):
+    """Получить статистику рефералов пользователя"""
+    conn = sqlite3.connect(config.DATABASE_FILE)
+    cursor = conn.cursor()
+    cursor.execute('SELECT COUNT(*), COALESCE(SUM(reward), 0) FROM referrals WHERE referrer_id = ?', (user_id,))
+    count, total = cursor.fetchone()
+    cursor.execute('SELECT ref_balance FROM users WHERE user_id = ?', (user_id,))
+    row = cursor.fetchone()
+    balance = row[0] if row else 0.0
+    conn.close()
+    return count or 0, total or 0.0, balance or 0.0
+
+def get_referral_count():
+    """Общее количество рефералов"""
+    conn = sqlite3.connect(config.DATABASE_FILE)
+    cursor = conn.cursor()
+    cursor.execute('SELECT COUNT(*) FROM referrals')
+    count = cursor.fetchone()[0]
+    conn.close()
+    return count
+
+def delete_all_orders():
+    """Удалить все заказы"""
+    conn = sqlite3.connect(config.DATABASE_FILE)
+    cursor = conn.cursor()
+    cursor.execute('DELETE FROM orders')
+    conn.commit()
+    conn.close()
+
+def delete_order(order_id):
+    """Удалить конкретный заказ"""
+    conn = sqlite3.connect(config.DATABASE_FILE)
+    cursor = conn.cursor()
+    cursor.execute('DELETE FROM orders WHERE order_id = ?', (order_id,))
+    conn.commit()
+    conn.close()
+
+def get_all_orders(limit=50):
+    """Получить все заказы (для публикации)"""
+    conn = sqlite3.connect(config.DATABASE_FILE)
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT o.order_id, o.user_id, u.username, u.first_name, o.service, o.amount, o.status, o.created_at
+        FROM orders o
+        JOIN users u ON o.user_id = u.user_id
+        ORDER BY o.created_at DESC
+        LIMIT ?
+    ''', (limit,))
+    orders = cursor.fetchall()
+    conn.close()
+    return orders
+
+def get_user_orders(user_id, limit=10):
+    """Получить последние заказы пользователя"""
+    conn = sqlite3.connect(config.DATABASE_FILE)
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT order_id, service, amount, status, created_at
+        FROM orders
+        WHERE user_id = ?
+        ORDER BY created_at DESC
+        LIMIT ?
+    ''', (user_id, limit))
+    orders = cursor.fetchall()
+    conn.close()
+    return orders
