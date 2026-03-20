@@ -68,6 +68,9 @@ class AdminAuthStates(StatesGroup):
     waiting_for_login = State()
     waiting_for_password = State()
 
+class ReviewStates(StatesGroup):
+    waiting_for_review = State()
+
 async def check_subscription(user_id):
     try:
         member = await bot.get_chat_member(config.CHANNEL_ID, user_id)
@@ -445,8 +448,8 @@ async def phone_number_received(message: types.Message, state: FSMContext):
     # Сохраняем номер и переходим к оплате
     await state.update_data(phone_number=phone)
     data = await state.get_data()
-    service_name = data.get('service_name')
-    price = data.get('price')
+    service_name = data.get('service_name', '')
+    price = data.get('price') or 0
     
     if lang == "uz":
         text = (
@@ -531,10 +534,14 @@ async def username_received(message: types.Message, state: FSMContext):
     else:
         # Для Stars и других услуг
         data = await state.get_data()
-        service_name = data.get('service_name')
-        price = data.get('price')
+        service_name = data.get('service_name', '')
+        price = data.get('price') or 0
         category = data.get('category', '')
         stars_count = data.get('stars_count', 0)
+
+        # Если price всё ещё 0 и есть stars_count — пересчитаем
+        if price == 0 and stars_count > 0:
+            price = stars_count * 245
 
         if category == "stars":
             # Для Stars показываем сводку заказа с кнопками подтверждения
@@ -948,8 +955,8 @@ async def anonymous_selected(callback: types.CallbackQuery, state: FSMContext):
     data = await state.get_data()
     username = data.get('username', '')
     gift_message = data.get('gift_message', '')
-    service_name = data.get('service_name')
-    price = data.get('price')
+    service_name = data.get('service_name', '')
+    price = data.get('price') or 0
     
     # Генерируем ID заказа
     import random
@@ -1049,8 +1056,8 @@ async def roblox_password_received(message: types.Message, state: FSMContext):
     
     data = await state.get_data()
     roblox_login = data.get('roblox_login', '')
-    service_name = data.get('service_name')
-    price = data.get('price')
+    service_name = data.get('service_name', '')
+    price = data.get('price') or 0
     
     import random, string
     order_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
@@ -1454,14 +1461,18 @@ async def payment_proof_received(message: types.Message, state: FSMContext):
         try:
             if lang == "uz":
                 admin_caption = (
-                    f"📝 <b>Buyurtma #{order_id}</b>\n\n"
-                    f"👤 Foydalanuvchi: @{message.from_user.username or 'username yoq'}\n"
+                    f"� <b>YANGI BUYURTMA!</b>\n"
+                    f"━━━━━━━━━━━━━━━\n"
+                    f"🆔 Buyurtma ID: <code>#{order_id}</code>\n"
+                    f"👤 Foydalanuvchi: @{message.from_user.username or 'username yoq'} (<code>{message.from_user.id}</code>)\n"
                     f"🛍️ Xizmat: <b>{service_name}</b>\n"
                 )
             else:
                 admin_caption = (
-                    f"📝 <b>Заказ #{order_id}</b>\n\n"
-                    f"👤 Пользователь: @{message.from_user.username or 'username yoq'}\n"
+                    f"� <b>НОВЫЙ ЗАКАЗ!r</b>\n"
+                    f"━━━━━━━━━━━━━━━\n"
+                    f"🆔 ID заказа: <code>#{order_id}</code>\n"
+                    f"👤 Пользователь: @{message.from_user.username or 'нет username'} (<code>{message.from_user.id}</code>)\n"
                     f"🛍️ Услуга: <b>{service_name}</b>\n"
                 )
 
@@ -2728,6 +2739,41 @@ async def admin_do_publish_order(callback: types.CallbackQuery):
             parse_mode="HTML"
         )
     await callback.answer()
+
+@dp.message(F.text == "� Отзыв юбориш")
+async def admin_send_review(message: types.Message, state: FSMContext):
+    if message.from_user.id not in config.ADMIN_IDS:
+        return
+    await message.answer(
+        "📤 <b>Отзыв юбориш</b>\n\n"
+        "Xaridor haqida post yuboring — rasm, matn yoki ikkalasi.\n"
+        "Masalan:\n"
+        "<code>✅ @username — 100 Stars sotib oldi\n"
+        "Tez va ishonchli xizmat!</code>\n\n"
+        "Yuborgan postingiz @StarPayUzz_orders kanaliga chiqadi.\n\n"
+        "/cancel — bekor qilish",
+        parse_mode="HTML"
+    )
+    await state.set_state(ReviewStates.waiting_for_review)
+
+@dp.message(ReviewStates.waiting_for_review)
+async def process_review(message: types.Message, state: FSMContext):
+    if message.from_user.id not in config.ADMIN_IDS:
+        return
+    try:
+        await message.copy_to(config.ORDERS_CHANNEL)
+        await message.answer(
+            "✅ <b>Отзыв @StarPayUzz_orders kanaliga yuborildi!</b>",
+            parse_mode="HTML",
+            reply_markup=keyboards.admin_menu()
+        )
+    except Exception as e:
+        await message.answer(
+            f"❌ Xatolik: <code>{e}</code>\n\n"
+            f"Bot @StarPayUzz_orders kanaliga admin sifatida qo'shilganligini tekshiring.",
+            parse_mode="HTML"
+        )
+    await state.clear()
 
 @dp.message(F.text == "📢 Рассылка")
 async def start_broadcast(message: types.Message, state: FSMContext):

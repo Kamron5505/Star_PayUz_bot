@@ -71,7 +71,8 @@ def admin_menu():
         keyboard=[
             [KeyboardButton(text="📊 Статистика"), KeyboardButton(text="📝 Заказы")],
             [KeyboardButton(text="🗑 Удалить заказы"), KeyboardButton(text="📣 Опубликовать заказ")],
-            [KeyboardButton(text="📢 Рассылка"), KeyboardButton(text="◀️ Выход")]
+            [KeyboardButton(text="📤 Отзыв юбориш"), KeyboardButton(text="📢 Рассылка")],
+            [KeyboardButton(text="◀️ Выход")]
         ],
         resize_keyboard=True
     )

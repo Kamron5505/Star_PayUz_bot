@@ -28,6 +28,9 @@ CHANNEL_RU = os.getenv("CHANNEL_RU", "@StarPayUzz")
 CHANNEL_ID = int(os.getenv("CHANNEL_ID", "-1003595453312"))
 CHANNEL_URL = os.getenv("CHANNEL_URL", "https://t.me/StarPayUzz")
 
+# Канал для отзывов/заказов
+ORDERS_CHANNEL = os.getenv("ORDERS_CHANNEL", "@StarPayUzz_orders")
+
 # Баннер бота
 # Получаем абсолютные пути к файлам
 BANNER_FILE = os.path.join(BASE_DIR, "start.png")
