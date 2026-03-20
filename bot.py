@@ -2923,7 +2923,6 @@ async def cmd_cancel(message: types.Message, state: FSMContext):
 
 async def set_bot_commands():
     """Установка команд бота"""
-    # Команды для обычных пользователей (без /admin)
     commands_uz = [
         types.BotCommand(command="start", description="Botni ishga tushirish"),
         types.BotCommand(command="qoida", description="Qoidalar"),
@@ -2932,22 +2931,25 @@ async def set_bot_commands():
         types.BotCommand(command="start", description="Запустить бота"),
         types.BotCommand(command="qoida", description="Правила"),
     ]
-    # Команды для админов (с /admin)
-    admin_commands = [
-        types.BotCommand(command="start", description="Запустить бота"),
-        types.BotCommand(command="qoida", description="Правила"),
-        types.BotCommand(command="admin", description="Админ панель"),
+    admin_commands_uz = [
+        types.BotCommand(command="start", description="Botni ishga tushirish"),
+        types.BotCommand(command="qoida", description="Qoidalar"),
+        types.BotCommand(command="admin", description="Admin panel"),
     ]
 
-    await bot.set_my_commands(commands_uz, language_code="uz")
-    await bot.set_my_commands(commands_ru, language_code="ru")
-    await bot.set_my_commands(commands_uz)
+    from aiogram.types import BotCommandScopeDefault, BotCommandScopeChat
 
-    # Устанавливаем расширенные команды для каждого админа
-    from aiogram.types import BotCommandScopeChat
+    # Дефолт — узбекский (для тех у кого язык не ru)
+    await bot.set_my_commands(commands_uz, scope=BotCommandScopeDefault())
+    # Для русскоязычных
+    await bot.set_my_commands(commands_ru, language_code="ru")
+    # Для узбекскоязычных явно
+    await bot.set_my_commands(commands_uz, language_code="uz")
+
+    # Для каждого админа — узбекские + /admin
     for admin_id in config.ADMIN_IDS:
         try:
-            await bot.set_my_commands(admin_commands, scope=BotCommandScopeChat(chat_id=admin_id))
+            await bot.set_my_commands(admin_commands_uz, scope=BotCommandScopeChat(chat_id=admin_id))
         except Exception as e:
             logging.error(f"Failed to set admin commands for {admin_id}: {e}")
 
