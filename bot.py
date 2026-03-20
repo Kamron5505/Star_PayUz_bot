@@ -688,18 +688,21 @@ async def confirm_stars_payment(callback: types.CallbackQuery, state: FSMContext
         price = data.get('price', 0)
 
     username = data.get('username', '')
-    
+    stars_count = data.get('stars_count', 0)
+
     if lang == "uz":
         text = (
             f"<tg-emoji emoji-id=\"5472250091332993630\">💳</tg-emoji> <code>9860 1801 0171 2578</code>\n"
             f"<tg-emoji emoji-id=\"5373012449597335010\">👤</tg-emoji> <b>Isxakova A.</b>\n\n"
-            f"Quyidagi kartaga <b>{price:,} so'm</b> yuboring va chekini tashlang..."
+            f"Ushbu kartaga <b>{price:,} so'm</b> yuboring\n\n"
+            f"<tg-emoji emoji-id=\"5461137215641895106\">⚠️</tg-emoji> <b>To'lov chekini (screenshot) shu yerga yuboring!</b>"
         )
     else:
         text = (
             f"<tg-emoji emoji-id=\"5472250091332993630\">💳</tg-emoji> <code>9860 1801 0171 2578</code>\n"
             f"<tg-emoji emoji-id=\"5373012449597335010\">👤</tg-emoji> <b>Isxakova A.</b>\n\n"
-            f"Отправьте <b>{price:,} сум</b> на эту карту и отправьте чек..."
+            f"Отправьте <b>{price:,} сум</b> на эту карту\n\n"
+            f"<tg-emoji emoji-id=\"5461137215641895106\">⚠️</tg-emoji> <b>Скриншот чека отправьте сюда в этот чат!</b>"
         )
     
     # Удаляем сообщение с кнопками
@@ -711,9 +714,30 @@ async def confirm_stars_payment(callback: types.CallbackQuery, state: FSMContext
     # Отправляем БЕЗ картинки, только текст
     await bot.send_message(callback.from_user.id, text, parse_mode="HTML")
     
-    # Обновляем price в state чтобы payment_proof_received получил правильную цену
-    await state.update_data(price=price)
+    # Обновляем price и payment_method в state
+    await state.update_data(price=price, payment_method="humo", stars_count=stars_count)
     await state.set_state(OrderStates.waiting_for_payment_proof)
+
+    # Уведомляем админов что пользователь подтвердил и сейчас пришлёт чек
+    user = callback.from_user
+    user_tag = f"@{user.username}" if user.username else user.first_name
+    stars_count = data.get('stars_count', 0)
+    username_target = data.get('username', '')
+    for admin_id in config.ADMIN_IDS:
+        try:
+            await bot.send_message(
+                admin_id,
+                f"🔔 <b>Yangi buyurtma kutilmoqda!</b>\n\n"
+                f"👤 Foydalanuvchi: {user_tag}\n"
+                f"⭐ Stars: {stars_count} ta\n"
+                f"👤 Username: @{username_target}\n"
+                f"💰 Summa: <b>{price:,} so'm</b>\n\n"
+                f"⏳ Chek kutilmoqda...",
+                parse_mode="HTML"
+            )
+        except:
+            pass
+
     await callback.answer()
 
 @dp.callback_query(F.data == "cancel_stars_payment")
@@ -1407,7 +1431,8 @@ async def payment_selected(callback: types.CallbackQuery, state: FSMContext):
 async def payment_proof_received(message: types.Message, state: FSMContext):
     lang = database.get_user_language(message.from_user.id)
     data = await state.get_data()
-    payment_method = data.get('payment_method', 'unknown')
+    logging.info(f"[PROOF] user={message.from_user.id} state_data={data}")
+    payment_method = data.get('payment_method', 'humo')
     product_id = data.get('product_id', 0)
     category = data.get('category', 'unknown')
     service_name = data.get('service_name', 'Xizmat')
