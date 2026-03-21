@@ -71,6 +71,9 @@ class AdminAuthStates(StatesGroup):
 class ReviewStates(StatesGroup):
     waiting_for_review = State()
 
+class DeliveryProofStates(StatesGroup):
+    waiting_for_proof = State()
+
 async def check_subscription(user_id):
     try:
         member = await bot.get_chat_member(config.CHANNEL_ID, user_id)
@@ -1569,6 +1572,61 @@ async def payment_proof_received(message: types.Message, state: FSMContext):
 
     await state.clear()
 
+# Хендлер для скрина поступления (после подтверждения заказа админом)
+@dp.message(F.photo)
+async def delivery_proof_received(message: types.Message, state: FSMContext):
+    """Ловим фото от пользователя у которого заказ в статусе waiting_proof"""
+    # Не мешаем другим состояниям
+    current_state = await state.get_state()
+    if current_state is not None:
+        return
+
+    user_id = message.from_user.id
+    # Проверяем есть ли у пользователя заказ waiting_proof
+    conn = sqlite3.connect(config.DATABASE_FILE)
+    cur = conn.cursor()
+    cur.execute(
+        'SELECT order_id, service, amount FROM orders WHERE user_id = ? AND status = ? ORDER BY created_at DESC LIMIT 1',
+        (user_id, 'waiting_proof')
+    )
+    row = cur.fetchone()
+    if row:
+        cur.execute('UPDATE orders SET status = ? WHERE order_id = ?', ('completed', row[0]))
+        conn.commit()
+    conn.close()
+
+    if not row:
+        return  # Не наш случай — игнорируем
+
+    order_id, service, amount = row
+    lang = database.get_user_language(user_id)
+    user_tag = f"@{message.from_user.username}" if message.from_user.username else message.from_user.first_name
+
+    # Отправляем скрин всем админам
+    for admin_id in config.ADMIN_IDS:
+        try:
+            await bot.send_photo(
+                admin_id,
+                photo=message.photo[-1].file_id,
+                caption=(
+                    f"📸 <b>Postu'pleniye skrinshoti</b>\n\n"
+                    f"🆔 Buyurtma: <code>#{order_id}</code>\n"
+                    f"👤 Xaridor: {user_tag}\n"
+                    f"🛍️ Xizmat: {service}\n"
+                    f"💰 Summa: {amount:,} UZS"
+                ),
+                parse_mode="HTML"
+            )
+        except Exception as e:
+            logging.error(f"Delivery proof send error: {e}")
+
+    # Благодарим пользователя
+    if lang == "uz":
+        thanks = "✅ <b>Rahmat! Skrinshot qabul qilindi.</b>\n\nXarid uchun tashakkur! 🌟"
+    else:
+        thanks = "✅ <b>Спасибо! Скриншот получен.</b>\n\nБлагодарим за покупку! 🌟"
+    await message.answer(thanks, parse_mode="HTML", reply_markup=keyboards.main_menu(lang))
+
 @dp.callback_query(F.data == "back_to_menu")
 async def back_to_menu_handler(callback: types.CallbackQuery):
     lang = database.get_user_language(callback.from_user.id)
@@ -2532,22 +2590,29 @@ async def approve_order(callback: types.CallbackQuery):
         user_id = order_info[0]
         database.update_order_status(order_id, "approved")
         
-        # Уведомляем пользователя
+        # Уведомляем пользователя и просим скрин поступления
         try:
             lang = database.get_user_language(user_id)
             if lang == "uz":
                 notify_text = (
                     f"<tg-emoji emoji-id=\"5208869687286316655\">✅</tg-emoji> <b>Buyurtma #{order_id} tasdiqlandi!</b>\n\n"
-                    f"<tg-emoji emoji-id=\"5460991276948143687\">⚡️</tg-emoji> Xizmat tez orada bajariladi.\n"
-                    f"<tg-emoji emoji-id=\"5201990176175299013\">📞</tg-emoji> Savollar: @StarPayUzAdmin"
+                    f"<tg-emoji emoji-id=\"5460991276948143687\">⚡️</tg-emoji> Xizmat tez orada bajariladi.\n\n"
+                    f"📸 <b>Iltimos, yulduzlar tushgandan so'ng skrinshot yuboring!</b>\n"
+                    f"Bu bizga hisobot uchun kerak."
                 )
             else:
                 notify_text = (
                     f"<tg-emoji emoji-id=\"5208869687286316655\">✅</tg-emoji> <b>Заказ #{order_id} подтверждён!</b>\n\n"
-                    f"<tg-emoji emoji-id=\"5460991276948143687\">⚡️</tg-emoji> Услуга будет выполнена в ближайшее время.\n"
-                    f"<tg-emoji emoji-id=\"5201990176175299013\">📞</tg-emoji> Вопросы: @StarPayUzAdmin"
+                    f"<tg-emoji emoji-id=\"5460991276948143687\">⚡️</tg-emoji> Услуга будет выполнена в ближайшее время.\n\n"
+                    f"� <b>После получения звёзд пришлите скриншот!</b>\n"
+                    f"Это нужно нам для отчёта."
                 )
             await bot.send_message(user_id, notify_text, parse_mode="HTML")
+            # Сохраняем в БД что ждём скрин от этого пользователя
+            _conn = sqlite3.connect(config.DATABASE_FILE)
+            _conn.execute('UPDATE orders SET status = ? WHERE order_id = ?', ('waiting_proof', order_id))
+            _conn.commit()
+            _conn.close()
         except:
             pass
     
@@ -2939,10 +3004,8 @@ async def set_bot_commands():
 
     from aiogram.types import BotCommandScopeDefault, BotCommandScopeChat
 
-    # Дефолт — узбекский (для тех у кого язык не ru)
+    # Дефолт — узбекский для всех языков
     await bot.set_my_commands(commands_uz, scope=BotCommandScopeDefault())
-    # Для русскоязычных
-    await bot.set_my_commands(commands_ru, language_code="ru")
     # Для узбекскоязычных явно
     await bot.set_my_commands(commands_uz, language_code="uz")
 
