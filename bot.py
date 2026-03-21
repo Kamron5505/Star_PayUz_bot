@@ -42,6 +42,14 @@ async def safe_edit_message(callback, text, reply_markup=None, parse_mode="HTML"
 
 logging.basicConfig(level=logging.INFO)
 
+from datetime import timezone, timedelta
+UZ_TZ = timezone(timedelta(hours=5))
+
+def uz_now():
+    """Текущее время в Узбекистане (UTC+5)"""
+    from datetime import datetime
+    return datetime.now(UZ_TZ).strftime('%Y-%m-%d %H:%M:%S')
+
 bot = Bot(token=config.BOT_TOKEN)
 storage = MemoryStorage()
 dp = Dispatcher(storage=storage)
@@ -1366,8 +1374,8 @@ async def payment_selected(callback: types.CallbackQuery, state: FSMContext):
             f"❗ To'lovdan so'ng 12 soat ichida chek adminga yuborilmasa, mablag' qaytarilmaydi.\n\n"
             f"📸 <b>To'lov chekini shu chatga yuboring!</b>\n\n"
             f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"📌 <b>Aloqa:</b> @Star_payuz_admin\n"
-            f"🤖 <b>Karta bot:</b> {config.CARD_BOT}"
+            f"📌 <b>Aloqa:</b> @kamron235\n"
+            f"🤖 <b>Karta:</b> {config.CARD_NUMBER}"
         )
     else:
         payment_info = (
@@ -1402,8 +1410,8 @@ async def payment_selected(callback: types.CallbackQuery, state: FSMContext):
             f"❗ Если чек не будет отправлен админу в течение 12 часов после оплаты, средства не возвращаются.\n\n"
             f"📸 <b>Отправьте чек оплаты в этот чат!</b>\n\n"
             f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"📌 <b>Связь:</b> @Star_payuz_admin\n"
-            f"🤖 <b>Карта бот:</b> {config.CARD_BOT}"
+            f"📌 <b>Связь:</b> @kamron235\n"
+            f"🤖 <b>Карта:</b> {config.CARD_NUMBER}"
         )
     
     # Пробуем отправить с картинкой карты
@@ -1546,9 +1554,9 @@ async def payment_proof_received(message: types.Message, state: FSMContext):
                     admin_caption += f"🔒 Анонимно: {'Да' if is_anonymous else 'Нет'}\n"
 
             if lang == "uz":
-                admin_caption += f"📅 Sana: {message.date.strftime('%Y-%m-%d %H:%M:%S')}"
+                admin_caption += f"📅 Sana: {uz_now()}"
             else:
-                admin_caption += f"📅 Дата: {message.date.strftime('%Y-%m-%d %H:%M:%S')}"
+                admin_caption += f"📅 Дата: {uz_now()}"
 
             # Проверяем есть ли фото
             if message.photo:
@@ -1572,27 +1580,26 @@ async def payment_proof_received(message: types.Message, state: FSMContext):
 
     await state.clear()
 
-# Хендлер для скрина поступления (после подтверждения заказа админом)
+# Хендлер для всех фото от пользователей
 @dp.message(F.photo)
 async def delivery_proof_received(message: types.Message, state: FSMContext):
-    """Ловим фото от пользователя — либо чек оплаты (нет заказа в БД), либо скрин поступления (waiting_proof)"""
     current_state = await state.get_state()
     user_id = message.from_user.id
     logging.info(f"[PHOTO] user={user_id} current_state={current_state}")
 
-    # Если есть FSM состояние waiting_for_payment_proof — передаём туда
+    # Чек оплаты (FSM состояние активно)
     if current_state == OrderStates.waiting_for_payment_proof.state:
         await payment_proof_received(message, state)
         return
 
-    # Если есть другое активное состояние — не мешаем
+    # Другое активное состояние — не мешаем
     if current_state is not None:
         return
 
     conn = sqlite3.connect(config.DATABASE_FILE)
     cur = conn.cursor()
 
-    # Сначала проверяем waiting_proof (скрин поступления после подтверждения)
+    # Скрин поступления (после подтверждения заказа админом)
     cur.execute(
         'SELECT order_id, service, amount FROM orders WHERE user_id = ? AND status = ? ORDER BY created_at DESC LIMIT 1',
         (user_id, 'waiting_proof')
@@ -1602,12 +1609,13 @@ async def delivery_proof_received(message: types.Message, state: FSMContext):
         cur.execute('UPDATE orders SET status = ? WHERE order_id = ?', ('completed', row[0]))
         conn.commit()
         conn.close()
-        logging.info(f"[PHOTO] delivery proof from user={user_id} order={row[0]}")
 
         order_id, service, amount = row
         lang = database.get_user_language(user_id)
         user_tag = f"@{message.from_user.username}" if message.from_user.username else message.from_user.first_name
+        logging.info(f"[PHOTO] delivery proof user={user_id} order={order_id}")
 
+        # Уведомляем админа
         for admin_id in config.ADMIN_IDS:
             try:
                 await bot.send_photo(
@@ -1618,22 +1626,51 @@ async def delivery_proof_received(message: types.Message, state: FSMContext):
                         f"🆔 Buyurtma: <code>#{order_id}</code>\n"
                         f"👤 Xaridor: {user_tag}\n"
                         f"🛍️ Xizmat: {service}\n"
-                        f"💰 Summa: {amount:,} UZS"
+                        f"💰 Summa: {amount:,} UZS\n"
+                        f"📅 Vaqt: {uz_now()}"
                     ),
                     parse_mode="HTML"
                 )
             except Exception as e:
-                logging.error(f"Delivery proof send error: {e}")
+                logging.error(f"Delivery proof admin notify error: {e}")
 
-        lang = database.get_user_language(user_id)
+        # Публикуем в канал отзывов автоматически
+        review_caption = (
+            f"⭐️ <b>Yangi xarid!</b>\n\n"
+            f"👤 Xaridor: <b>{user_tag}</b>\n"
+            f"🛍️ Xizmat: <b>{service}</b>\n"
+            f"💰 Summa: <b>{amount:,} UZS</b>\n\n"
+            f"✅ <b>Star_payuz</b> orqali muvaffaqiyatli sotib olindi!\n"
+            f"🔗 @StarPayUzz"
+        )
+        try:
+            await bot.send_photo(
+                config.REVIEWS_CHANNEL,
+                photo=message.photo[-1].file_id,
+                caption=review_caption,
+                parse_mode="HTML"
+            )
+            logging.info(f"[PHOTO] review published to channel for order={order_id}")
+        except Exception as e:
+            logging.error(f"Review channel publish error: {e}")
+
+        # Благодарим пользователя
         if lang == "uz":
-            thanks = "✅ <b>Rahmat! Skrinshot qabul qilindi.</b>\n\nXarid uchun tashakkur! 🌟"
+            thanks = (
+                "✅ <b>Rahmat! Skrinshot qabul qilindi.</b>\n\n"
+                "Sizning otzivinggiz kanalga joylashtirildi! 🌟\n"
+                "Xarid uchun tashakkur!"
+            )
         else:
-            thanks = "✅ <b>Спасибо! Скриншот получен.</b>\n\nБлагодарим за покупку! 🌟"
+            thanks = (
+                "✅ <b>Спасибо! Скриншот получен.</b>\n\n"
+                "Ваш отзыв опубликован в канале! 🌟\n"
+                "Благодарим за покупку!"
+            )
         await message.answer(thanks, parse_mode="HTML", reply_markup=keyboards.main_menu(lang))
         return
 
-    # Проверяем pending заказ (чек оплаты — бот перезапустился и потерял FSM)
+    # Fallback: pending заказ без FSM (бот перезапустился)
     cur.execute(
         'SELECT order_id, service, amount FROM orders WHERE user_id = ? AND status = ? ORDER BY created_at DESC LIMIT 1',
         (user_id, 'pending')
@@ -1642,11 +1679,10 @@ async def delivery_proof_received(message: types.Message, state: FSMContext):
     conn.close()
 
     if row:
-        logging.info(f"[PHOTO] payment proof (no FSM state) from user={user_id} order={row[0]}")
-        # Восстанавливаем данные из БД и обрабатываем как чек оплаты
         order_id, service, amount = row
         lang = database.get_user_language(user_id)
         user_tag = f"@{message.from_user.username}" if message.from_user.username else message.from_user.first_name
+        logging.info(f"[PHOTO] payment proof (no FSM) user={user_id} order={order_id}")
 
         for admin_id in config.ADMIN_IDS:
             try:
@@ -1659,7 +1695,8 @@ async def delivery_proof_received(message: types.Message, state: FSMContext):
                         f"🆔 Buyurtma ID: <code>#{order_id}</code>\n"
                         f"👤 Foydalanuvchi: {user_tag} (<code>{user_id}</code>)\n"
                         f"🛍️ Xizmat: <b>{service}</b>\n"
-                        f"💰 Summa: {amount:,} UZS"
+                        f"💰 Summa: {amount:,} UZS\n"
+                        f"📅 Vaqt: {uz_now()}"
                     ),
                     reply_markup=keyboards.order_actions(order_id),
                     parse_mode="HTML"
@@ -1667,6 +1704,7 @@ async def delivery_proof_received(message: types.Message, state: FSMContext):
             except Exception as e:
                 logging.error(f"Payment proof (no FSM) send error: {e}")
 
+        lang = database.get_user_language(user_id)
         if lang == "uz":
             await message.answer(
                 "✅ <b>Chek qabul qilindi!</b>\n\nAdmin tez orada buyurtmangizni tasdiqlaydi.",
@@ -2882,17 +2920,14 @@ async def admin_do_publish_order(callback: types.CallbackQuery):
         )
     await callback.answer()
 
-@dp.message(F.text == "� Отзыв юбориш")
+@dp.message(F.text == "📤 Отзыв юбориш")
 async def admin_send_review(message: types.Message, state: FSMContext):
     if message.from_user.id not in config.ADMIN_IDS:
         return
     await message.answer(
-        "📤 <b>Отзыв юбориш</b>\n\n"
-        "Xaridor haqida post yuboring — rasm, matn yoki ikkalasi.\n"
-        "Masalan:\n"
-        "<code>✅ @username — 100 Stars sotib oldi\n"
-        "Tez va ishonchli xizmat!</code>\n\n"
-        "Yuborgan postingiz @StarPayUzz_orders kanaliga chiqadi.\n\n"
+        "📤 <b>Otzyv yuborish</b>\n\n"
+        "Xaridor haqida post yuboring — rasm+matn yoki faqat matn.\n\n"
+        "Post <b>StarPayUzOtzv</b> kanaliga chiqadi.\n\n"
         "/cancel — bekor qilish",
         parse_mode="HTML"
     )
@@ -2903,16 +2938,17 @@ async def process_review(message: types.Message, state: FSMContext):
     if message.from_user.id not in config.ADMIN_IDS:
         return
     try:
-        await message.copy_to(config.ORDERS_CHANNEL)
+        await message.copy_to(config.REVIEWS_CHANNEL)
         await message.answer(
-            "✅ <b>Отзыв @StarPayUzz_orders kanaliga yuborildi!</b>",
+            "✅ <b>Otzyv kanaliga yuborildi!</b>",
             parse_mode="HTML",
             reply_markup=keyboards.admin_menu()
         )
     except Exception as e:
+        logging.error(f"Review publish error: {e}")
         await message.answer(
             f"❌ Xatolik: <code>{e}</code>\n\n"
-            f"Bot @StarPayUzz_orders kanaliga admin sifatida qo'shilganligini tekshiring.",
+            f"Bot kanalga admin sifatida qo'shilganligini tekshiring.",
             parse_mode="HTML"
         )
     await state.clear()
