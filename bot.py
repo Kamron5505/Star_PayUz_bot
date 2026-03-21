@@ -1441,7 +1441,7 @@ async def payment_selected(callback: types.CallbackQuery, state: FSMContext):
 async def payment_proof_received(message: types.Message, state: FSMContext):
     lang = database.get_user_language(message.from_user.id)
     data = await state.get_data()
-    logging.info(f"[PROOF] user={message.from_user.id} state_data={data}")
+    logging.info(f"[PROOF] triggered via FSM state user={message.from_user.id} state_data={data}")
     payment_method = data.get('payment_method', 'humo')
     product_id = data.get('product_id', 0)
     category = data.get('category', 'unknown')
@@ -1575,16 +1575,24 @@ async def payment_proof_received(message: types.Message, state: FSMContext):
 # Хендлер для скрина поступления (после подтверждения заказа админом)
 @dp.message(F.photo)
 async def delivery_proof_received(message: types.Message, state: FSMContext):
-    """Ловим фото от пользователя у которого заказ в статусе waiting_proof"""
-    # Не мешаем другим состояниям
+    """Ловим фото от пользователя — либо чек оплаты (нет заказа в БД), либо скрин поступления (waiting_proof)"""
     current_state = await state.get_state()
+    user_id = message.from_user.id
+    logging.info(f"[PHOTO] user={user_id} current_state={current_state}")
+
+    # Если есть FSM состояние waiting_for_payment_proof — передаём туда
+    if current_state == OrderStates.waiting_for_payment_proof.state:
+        await payment_proof_received(message, state)
+        return
+
+    # Если есть другое активное состояние — не мешаем
     if current_state is not None:
         return
 
-    user_id = message.from_user.id
-    # Проверяем есть ли у пользователя заказ waiting_proof
     conn = sqlite3.connect(config.DATABASE_FILE)
     cur = conn.cursor()
+
+    # Сначала проверяем waiting_proof (скрин поступления после подтверждения)
     cur.execute(
         'SELECT order_id, service, amount FROM orders WHERE user_id = ? AND status = ? ORDER BY created_at DESC LIMIT 1',
         (user_id, 'waiting_proof')
@@ -1593,39 +1601,84 @@ async def delivery_proof_received(message: types.Message, state: FSMContext):
     if row:
         cur.execute('UPDATE orders SET status = ? WHERE order_id = ?', ('completed', row[0]))
         conn.commit()
+        conn.close()
+        logging.info(f"[PHOTO] delivery proof from user={user_id} order={row[0]}")
+
+        order_id, service, amount = row
+        lang = database.get_user_language(user_id)
+        user_tag = f"@{message.from_user.username}" if message.from_user.username else message.from_user.first_name
+
+        for admin_id in config.ADMIN_IDS:
+            try:
+                await bot.send_photo(
+                    admin_id,
+                    photo=message.photo[-1].file_id,
+                    caption=(
+                        f"📸 <b>Yulduzlar tushdi — skrinshot!</b>\n\n"
+                        f"🆔 Buyurtma: <code>#{order_id}</code>\n"
+                        f"👤 Xaridor: {user_tag}\n"
+                        f"🛍️ Xizmat: {service}\n"
+                        f"💰 Summa: {amount:,} UZS"
+                    ),
+                    parse_mode="HTML"
+                )
+            except Exception as e:
+                logging.error(f"Delivery proof send error: {e}")
+
+        lang = database.get_user_language(user_id)
+        if lang == "uz":
+            thanks = "✅ <b>Rahmat! Skrinshot qabul qilindi.</b>\n\nXarid uchun tashakkur! 🌟"
+        else:
+            thanks = "✅ <b>Спасибо! Скриншот получен.</b>\n\nБлагодарим за покупку! 🌟"
+        await message.answer(thanks, parse_mode="HTML", reply_markup=keyboards.main_menu(lang))
+        return
+
+    # Проверяем pending заказ (чек оплаты — бот перезапустился и потерял FSM)
+    cur.execute(
+        'SELECT order_id, service, amount FROM orders WHERE user_id = ? AND status = ? ORDER BY created_at DESC LIMIT 1',
+        (user_id, 'pending')
+    )
+    row = cur.fetchone()
     conn.close()
 
-    if not row:
-        return  # Не наш случай — игнорируем
+    if row:
+        logging.info(f"[PHOTO] payment proof (no FSM state) from user={user_id} order={row[0]}")
+        # Восстанавливаем данные из БД и обрабатываем как чек оплаты
+        order_id, service, amount = row
+        lang = database.get_user_language(user_id)
+        user_tag = f"@{message.from_user.username}" if message.from_user.username else message.from_user.first_name
 
-    order_id, service, amount = row
-    lang = database.get_user_language(user_id)
-    user_tag = f"@{message.from_user.username}" if message.from_user.username else message.from_user.first_name
+        for admin_id in config.ADMIN_IDS:
+            try:
+                await bot.send_photo(
+                    admin_id,
+                    photo=message.photo[-1].file_id,
+                    caption=(
+                        f"🧾 <b>YANGI BUYURTMA (chek)!</b>\n"
+                        f"━━━━━━━━━━━━━━━\n"
+                        f"🆔 Buyurtma ID: <code>#{order_id}</code>\n"
+                        f"👤 Foydalanuvchi: {user_tag} (<code>{user_id}</code>)\n"
+                        f"🛍️ Xizmat: <b>{service}</b>\n"
+                        f"💰 Summa: {amount:,} UZS"
+                    ),
+                    reply_markup=keyboards.order_actions(order_id),
+                    parse_mode="HTML"
+                )
+            except Exception as e:
+                logging.error(f"Payment proof (no FSM) send error: {e}")
 
-    # Отправляем скрин всем админам
-    for admin_id in config.ADMIN_IDS:
-        try:
-            await bot.send_photo(
-                admin_id,
-                photo=message.photo[-1].file_id,
-                caption=(
-                    f"📸 <b>Postu'pleniye skrinshoti</b>\n\n"
-                    f"🆔 Buyurtma: <code>#{order_id}</code>\n"
-                    f"👤 Xaridor: {user_tag}\n"
-                    f"🛍️ Xizmat: {service}\n"
-                    f"💰 Summa: {amount:,} UZS"
-                ),
+        if lang == "uz":
+            await message.answer(
+                "✅ <b>Chek qabul qilindi!</b>\n\nAdmin tez orada buyurtmangizni tasdiqlaydi.",
                 parse_mode="HTML"
             )
-        except Exception as e:
-            logging.error(f"Delivery proof send error: {e}")
-
-    # Благодарим пользователя
-    if lang == "uz":
-        thanks = "✅ <b>Rahmat! Skrinshot qabul qilindi.</b>\n\nXarid uchun tashakkur! 🌟"
+        else:
+            await message.answer(
+                "✅ <b>Чек получен!</b>\n\nАдмин скоро подтвердит ваш заказ.",
+                parse_mode="HTML"
+            )
     else:
-        thanks = "✅ <b>Спасибо! Скриншот получен.</b>\n\nБлагодарим за покупку! 🌟"
-    await message.answer(thanks, parse_mode="HTML", reply_markup=keyboards.main_menu(lang))
+        logging.info(f"[PHOTO] unknown photo from user={user_id}, ignoring")
 
 @dp.callback_query(F.data == "back_to_menu")
 async def back_to_menu_handler(callback: types.CallbackQuery):
