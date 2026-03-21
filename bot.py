@@ -2583,48 +2583,68 @@ async def approve_order(callback: types.CallbackQuery):
         return
     
     order_id = int(callback.data.replace("approve_", ""))
+    logging.info(f"[APPROVE] admin={callback.from_user.id} order_id={order_id}")
     
     # Получаем информацию о заказе
     order_info = database.get_order_info(order_id)
+    logging.info(f"[APPROVE] order_info={order_info}")
+    
     if order_info:
         user_id = order_info[0]
-        database.update_order_status(order_id, "approved")
+        service = order_info[1]
+        amount = order_info[2]
+        logging.info(f"[APPROVE] sending to user_id={user_id}")
         
-        # Уведомляем пользователя и просим скрин поступления
+        # Меняем статус
         try:
-            lang = database.get_user_language(user_id)
-            if lang == "uz":
-                notify_text = (
-                    f"<tg-emoji emoji-id=\"5208869687286316655\">✅</tg-emoji> <b>Buyurtma #{order_id} tasdiqlandi!</b>\n\n"
-                    f"<tg-emoji emoji-id=\"5460991276948143687\">⚡️</tg-emoji> Xizmat tez orada bajariladi.\n\n"
-                    f"📸 <b>Iltimos, yulduzlar tushgandan so'ng skrinshot yuboring!</b>\n"
-                    f"Bu bizga hisobot uchun kerak."
-                )
-            else:
-                notify_text = (
-                    f"<tg-emoji emoji-id=\"5208869687286316655\">✅</tg-emoji> <b>Заказ #{order_id} подтверждён!</b>\n\n"
-                    f"<tg-emoji emoji-id=\"5460991276948143687\">⚡️</tg-emoji> Услуга будет выполнена в ближайшее время.\n\n"
-                    f"� <b>После получения звёзд пришлите скриншот!</b>\n"
-                    f"Это нужно нам для отчёта."
-                )
-            await bot.send_message(user_id, notify_text, parse_mode="HTML")
-            # Сохраняем в БД что ждём скрин от этого пользователя
+            database.update_order_status(order_id, "approved")
             _conn = sqlite3.connect(config.DATABASE_FILE)
             _conn.execute('UPDATE orders SET status = ? WHERE order_id = ?', ('waiting_proof', order_id))
             _conn.commit()
             _conn.close()
-        except:
-            pass
+        except Exception as e:
+            logging.error(f"approve status update error: {e}")
+        
+        # Уведомляем пользователя
+        lang = database.get_user_language(user_id)
+        if lang == "uz":
+            notify_text = (
+                f"✅ <b>Buyurtma #{order_id} tasdiqlandi!</b>\n\n"
+                f"⚡️ Xizmat tez orada bajariladi.\n\n"
+                f"📸 <b>Iltimos, yulduzlar tushgandan so'ng skrinshot yuboring!</b>\n"
+                f"Bu bizga hisobot uchun kerak."
+            )
+        else:
+            notify_text = (
+                f"✅ <b>Заказ #{order_id} подтверждён!</b>\n\n"
+                f"⚡️ Услуга будет выполнена в ближайшее время.\n\n"
+                f"📸 <b>После получения звёзд пришлите скриншот!</b>\n"
+                f"Это нужно нам для отчёта."
+            )
+        try:
+            await bot.send_message(user_id, notify_text, parse_mode="HTML")
+            logging.info(f"[APPROVE] notification sent to user_id={user_id}")
+        except Exception as e:
+            logging.error(f"approve notify error: {e}")
+    else:
+        logging.warning(f"[APPROVE] order_id={order_id} not found in DB!")
+        await callback.answer("⚠️ Заказ не найден в БД!", show_alert=True)
+        return
     
+    # Обновляем сообщение у админа
     try:
-        await callback.message.edit_text(
-            callback.message.text + "\n\n✅ <b>ПОДТВЕРЖДЕН</b>",
-            parse_mode="HTML"
-        )
-    except:
-        # Используем safe_edit_message для работы с любым типом сообщения
-        new_text = callback.message.caption if callback.message.caption else callback.message.text
-        await safe_edit_message(callback, new_text + "\n\n✅ <b>ПОДТВЕРЖДЕН</b>")
+        if callback.message.text:
+            await callback.message.edit_text(
+                callback.message.text + "\n\n✅ <b>ПОДТВЕРЖДЕН</b>",
+                parse_mode="HTML"
+            )
+        elif callback.message.caption:
+            await callback.message.edit_caption(
+                caption=callback.message.caption + "\n\n✅ <b>ПОДТВЕРЖДЕН</b>",
+                parse_mode="HTML"
+            )
+    except Exception as e:
+        logging.error(f"approve edit message error: {e}")
     
     await callback.answer("✅ Заказ подтвержден!")
 
@@ -2647,27 +2667,31 @@ async def reject_order(callback: types.CallbackQuery):
             lang = database.get_user_language(user_id)
             if lang == "uz":
                 notify_text = (
-                    f"<tg-emoji emoji-id=\"5461137215641895106\">⚠️</tg-emoji> <b>Buyurtma #{order_id} rad etildi.</b>\n\n"
-                    f"<tg-emoji emoji-id=\"5201990176175299013\">📞</tg-emoji> Muammo bo'lsa: @StarPayUzAdmin || @kamron235"
+                    f"⚠️ <b>Buyurtma #{order_id} rad etildi.</b>\n\n"
+                    f"📞 Muammo bo'lsa: @StarPayUzAdmin || @kamron235"
                 )
             else:
                 notify_text = (
-                    f"<tg-emoji emoji-id=\"5461137215641895106\">⚠️</tg-emoji> <b>Заказ #{order_id} отклонён.</b>\n\n"
-                    f"<tg-emoji emoji-id=\"5201990176175299013\">📞</tg-emoji> По вопросам: @StarPayUzAdmin || @kamron235"
+                    f"⚠️ <b>Заказ #{order_id} отклонён.</b>\n\n"
+                    f"📞 По вопросам: @StarPayUzAdmin || @kamron235"
                 )
             await bot.send_message(user_id, notify_text, parse_mode="HTML")
-        except:
-            pass
+        except Exception as e:
+            logging.error(f"reject notify error: {e}")
     
     try:
-        await callback.message.edit_text(
-            callback.message.text + "\n\n❌ <b>ОТКЛОНЕН</b>",
-            parse_mode="HTML"
-        )
-    except:
-        # Используем safe_edit_message для работы с любым типом сообщения
-        new_text = callback.message.caption if callback.message.caption else callback.message.text
-        await safe_edit_message(callback, new_text + "\n\n❌ <b>ОТКЛОНЕН</b>")
+        if callback.message.text:
+            await callback.message.edit_text(
+                callback.message.text + "\n\n❌ <b>ОТКЛОНЕН</b>",
+                parse_mode="HTML"
+            )
+        elif callback.message.caption:
+            await callback.message.edit_caption(
+                caption=callback.message.caption + "\n\n❌ <b>ОТКЛОНЕН</b>",
+                parse_mode="HTML"
+            )
+    except Exception as e:
+        logging.error(f"reject edit message error: {e}")
     
     await callback.answer("❌ Заказ отклонен!")
 
