@@ -42,17 +42,56 @@ async def safe_edit_message(callback, text, reply_markup=None, parse_mode="HTML"
 
 logging.basicConfig(level=logging.INFO)
 
-from datetime import timezone, timedelta
+from datetime import timezone, timedelta, datetime
 UZ_TZ = timezone(timedelta(hours=5))
 
 def uz_now():
     """Текущее время в Узбекистане (UTC+5)"""
-    from datetime import datetime
     return datetime.now(UZ_TZ).strftime('%Y-%m-%d %H:%M:%S')
+
+def is_working_hours():
+    """Проверка рабочего времени 09:00–22:00 по Ташкенту"""
+    now = datetime.now(UZ_TZ)
+    return 9 <= now.hour < 22
 
 bot = Bot(token=config.BOT_TOKEN)
 storage = MemoryStorage()
 dp = Dispatcher(storage=storage)
+
+# Middleware рабочего времени
+from aiogram import BaseMiddleware
+from typing import Callable, Dict, Any, Awaitable
+
+class WorkingHoursMiddleware(BaseMiddleware):
+    async def __call__(
+        self,
+        handler: Callable[[types.TelegramObject, Dict[str, Any]], Awaitable[Any]],
+        event: types.TelegramObject,
+        data: Dict[str, Any]
+    ) -> Any:
+        # Пропускаем админов всегда
+        user = data.get("event_from_user")
+        if user and user.id in config.ADMIN_IDS:
+            return await handler(event, data)
+
+        if not is_working_hours():
+            # Отвечаем только на сообщения и callback, не на остальное
+            if isinstance(event, types.Message):
+                lang = database.get_user_language(event.from_user.id) if event.from_user else "uz"
+                if lang == "uz":
+                    text = "🕐 <b>Bot hozir ishlamaydi.</b>\n\nIsh vaqti: <b>09:00 – 22:00</b> (Toshkent vaqti)\n\nKeyinroq urinib ko'ring!"
+                else:
+                    text = "🕐 <b>Бот сейчас не работает.</b>\n\nРабочее время: <b>09:00 – 22:00</b> (Ташкент)\n\nПопробуйте позже!"
+                await event.answer(text, parse_mode="HTML")
+            elif isinstance(event, types.CallbackQuery):
+                lang = database.get_user_language(event.from_user.id) if event.from_user else "uz"
+                if lang == "uz":
+                    text = "🕐 Bot hozir ishlamaydi. Ish vaqti: 09:00–22:00"
+                else:
+                    text = "🕐 Бот не работает. Время работы: 09:00–22:00"
+                await event.answer(text, show_alert=True)
+            return  # не передаём дальше
+        return await handler(event, data)
 
 class OrderStates(StatesGroup):
     waiting_for_payment_proof = State()
@@ -3132,6 +3171,9 @@ async def set_bot_commands():
 async def main():
     database.init_db()
     await set_bot_commands()
+    # Регистрируем middleware рабочего времени
+    dp.message.middleware(WorkingHoursMiddleware())
+    dp.callback_query.middleware(WorkingHoursMiddleware())
     print("🚀 Бот Star_payuz zapущен!")
     await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot, skip_updates=True)
