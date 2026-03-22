@@ -2657,39 +2657,41 @@ async def admin_orders(message: types.Message, state: FSMContext):
     if message.from_user.id not in config.ADMIN_IDS:
         return
 
-    # Показываем все заказы (не только pending)
-    orders = database.get_all_orders(limit=30)
+    orders = database.get_all_orders(limit=50)
 
     if not orders:
-        await message.answer("📝 Заказов нет")
+        await message.answer("📝 Zakazlar yo'q")
         return
 
     status_map = {
-        "pending":  "⏳ Kutilmoqda",
-        "approved": "✅ Tasdiqlandi",
-        "rejected": "❌ Rad etildi",
+        "pending":      "⏳ Kutilmoqda",
+        "approved":     "✅ Tasdiqlandi",
+        "waiting_proof":"📸 Skrinshot kutilmoqda",
+        "completed":    "🏁 Bajarildi",
+        "rejected":     "❌ Rad etildi",
     }
+
+    await message.answer(f"📝 <b>Jami zakazlar: {len(orders)} ta</b>", parse_mode="HTML")
 
     for order in orders:
         order_id, user_id, username, first_name, service, amount, status, created_at = order
-        user_tag = f"@{username}" if username else first_name
+        user_tag = f"@{username}" if username else (first_name or str(user_id))
         status_label = status_map.get(status, status)
 
         order_text = (
-            f"📝 <b>Заказ #{order_id}</b>\n\n"
-            f"👤 Пользователь: {user_tag}\n"
-            f"🛍️ Услуга: {service}\n"
-            f"💰 Сумма: {amount:,} UZS\n"
-            f"📊 Статус: {status_label}\n"
-            f"📅 Дата: {created_at}"
+            f"📝 <b>Zakaz #{order_id}</b>\n"
+            f"👤 {user_tag}\n"
+            f"🛍️ {service}\n"
+            f"💰 {amount:,} UZS\n"
+            f"📊 {status_label}\n"
+            f"📅 {created_at}"
         )
 
-        # Для pending показываем approve/reject, для остальных только удаление
         if status == "pending":
             kb = keyboards.order_actions(order_id)
         else:
             kb = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="🗑 Удалить", callback_data=f"del_order_{order_id}")]
+                [InlineKeyboardButton(text="🗑 O'chirish", callback_data=f"del_order_{order_id}")]
             ])
 
         await message.answer(order_text, reply_markup=kb, parse_mode="HTML")
