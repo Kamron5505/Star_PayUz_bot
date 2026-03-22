@@ -2971,20 +2971,29 @@ async def admin_do_publish_order(callback: types.CallbackQuery):
 async def admin_send_review(message: types.Message, state: FSMContext):
     if message.from_user.id not in config.ADMIN_IDS:
         return
+    await state.set_state(ReviewStates.waiting_for_review)
     await message.answer(
         "📤 <b>Otzyv yuborish</b>\n\n"
-        "Rasm yoki matn yuboring — kanal <b>StarPayUzOtzv</b> ga chiqadi.\n\n"
-        "/cancel — bekor qilish",
-        parse_mode="HTML"
+        "Rasm yoki matn yuboring — <b>StarPayUzOtzv</b> kanaliga chiqadi.\n\n"
+        "Bekor qilish uchun /cancel",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="❌ Bekor qilish", callback_data="cancel_review")]
+        ])
     )
-    await state.set_state(ReviewStates.waiting_for_review)
+
+@dp.callback_query(F.data == "cancel_review")
+async def cancel_review(callback: types.CallbackQuery, state: FSMContext):
+    await state.clear()
+    await callback.message.delete()
+    await callback.answer("Bekor qilindi")
 
 @dp.message(ReviewStates.waiting_for_review)
 async def process_review(message: types.Message, state: FSMContext):
     if message.from_user.id not in config.ADMIN_IDS:
         await state.clear()
         return
-    logging.info(f"[REVIEW] from admin={message.from_user.id} content_type={message.content_type}")
+    logging.info(f"[REVIEW] admin={message.from_user.id} type={message.content_type}")
     try:
         if message.photo:
             await bot.send_photo(
@@ -3014,13 +3023,10 @@ async def process_review(message: types.Message, state: FSMContext):
             parse_mode="HTML",
             reply_markup=keyboards.admin_menu()
         )
-        logging.info(f"[REVIEW] published to {config.REVIEWS_CHANNEL}")
+        logging.info(f"[REVIEW] published OK to {config.REVIEWS_CHANNEL}")
     except Exception as e:
         logging.error(f"Review publish error: {e}")
-        await message.answer(
-            f"❌ Xatolik: <code>{e}</code>",
-            parse_mode="HTML"
-        )
+        await message.answer(f"❌ Xatolik: <code>{e}</code>", parse_mode="HTML")
     await state.clear()
 
 @dp.message(F.text == "📢 Рассылка")
