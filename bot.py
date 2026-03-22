@@ -1632,6 +1632,11 @@ async def delivery_proof_received(message: types.Message, state: FSMContext):
         await payment_proof_received(message, state)
         return
 
+    # Отзыв от админа — передаём в process_review
+    if current_state == ReviewStates.waiting_for_review.state:
+        await process_review(message, state)
+        return
+
     # Другое активное состояние — не мешаем
     if current_state is not None:
         return
