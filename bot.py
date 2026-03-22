@@ -1502,6 +1502,7 @@ async def payment_proof_received(message: types.Message, state: FSMContext):
     channel_link = data.get('channel_link', '')
 
     order_id = database.create_order(message.from_user.id, service_name, price, payment_method)
+    logging.info(f"[ORDER CREATED] order_id={order_id} user={message.from_user.id} service={service_name} price={price}")
 
     # Отправляем подтверждение пользователю
     await message.answer(get_premium_order_accepted(order_id, lang), reply_markup=keyboards.back_to_menu(lang), parse_mode="HTML")
@@ -1511,7 +1512,7 @@ async def payment_proof_received(message: types.Message, state: FSMContext):
         try:
             if lang == "uz":
                 admin_caption = (
-                    f"� <b>YANGI BUYURTMA!</b>\n"
+                    f"🧾 <b>YANGI BUYURTMA!</b>\n"
                     f"━━━━━━━━━━━━━━━\n"
                     f"🆔 Buyurtma ID: <code>#{order_id}</code>\n"
                     f"👤 Foydalanuvchi: @{message.from_user.username or 'username yoq'} (<code>{message.from_user.id}</code>)\n"
@@ -1519,7 +1520,7 @@ async def payment_proof_received(message: types.Message, state: FSMContext):
                 )
             else:
                 admin_caption = (
-                    f"� <b>НОВЫЙ ЗАКАЗ!r</b>\n"
+                    f"🧾 <b>НОВЫЙ ЗАКАЗ!</b>\n"
                     f"━━━━━━━━━━━━━━━\n"
                     f"🆔 ID заказа: <code>#{order_id}</code>\n"
                     f"👤 Пользователь: @{message.from_user.username or 'нет username'} (<code>{message.from_user.id}</code>)\n"
