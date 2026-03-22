@@ -2973,8 +2973,7 @@ async def admin_send_review(message: types.Message, state: FSMContext):
         return
     await message.answer(
         "📤 <b>Otzyv yuborish</b>\n\n"
-        "Xaridor haqida post yuboring — rasm+matn yoki faqat matn.\n\n"
-        "Post <b>StarPayUzOtzv</b> kanaliga chiqadi.\n\n"
+        "Rasm yoki matn yuboring — kanal <b>StarPayUzOtzv</b> ga chiqadi.\n\n"
         "/cancel — bekor qilish",
         parse_mode="HTML"
     )
@@ -2983,19 +2982,43 @@ async def admin_send_review(message: types.Message, state: FSMContext):
 @dp.message(ReviewStates.waiting_for_review)
 async def process_review(message: types.Message, state: FSMContext):
     if message.from_user.id not in config.ADMIN_IDS:
+        await state.clear()
         return
+    logging.info(f"[REVIEW] from admin={message.from_user.id} content_type={message.content_type}")
     try:
-        await message.copy_to(config.REVIEWS_CHANNEL)
+        if message.photo:
+            await bot.send_photo(
+                config.REVIEWS_CHANNEL,
+                photo=message.photo[-1].file_id,
+                caption=message.caption or "",
+                caption_entities=message.caption_entities,
+            )
+        elif message.video:
+            await bot.send_video(
+                config.REVIEWS_CHANNEL,
+                video=message.video.file_id,
+                caption=message.caption or "",
+                caption_entities=message.caption_entities,
+            )
+        elif message.text:
+            await bot.send_message(
+                config.REVIEWS_CHANNEL,
+                message.text,
+                entities=message.entities,
+            )
+        else:
+            await message.copy_to(config.REVIEWS_CHANNEL)
+
         await message.answer(
             "✅ <b>Otzyv kanaliga yuborildi!</b>",
             parse_mode="HTML",
             reply_markup=keyboards.admin_menu()
         )
+        logging.info(f"[REVIEW] published to {config.REVIEWS_CHANNEL}")
     except Exception as e:
         logging.error(f"Review publish error: {e}")
         await message.answer(
-            f"❌ Xatolik: <code>{e}</code>\n\n"
-            f"Bot kanalga admin sifatida qo'shilganligini tekshiring.",
+            f"❌ Xatolik: <code>{e}</code>",
             parse_mode="HTML"
         )
     await state.clear()
