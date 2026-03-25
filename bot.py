@@ -157,6 +157,14 @@ async def cmd_start(message: types.Message):
     
     # Если язык не выбран (первый запуск), показываем выбор языка
     if lang == "uz" and is_new:
+        # Сохраняем реферера ДО показа выбора языка
+        if referrer_id:
+            _conn = sqlite3.connect(config.DATABASE_FILE)
+            _conn.execute('UPDATE users SET referred_by = ? WHERE user_id = ? AND referred_by IS NULL', (referrer_id, user.id))
+            _conn.commit()
+            _conn.close()
+            logging.info(f"[REF] saved referrer_id={referrer_id} for new user={user.id}")
+
         welcome_text = (
             f"👋 <b>Assalomu aleykum, {user_mention}!</b>\n\n"
             f"🌟 <b>Star_payuz</b> - Telegram xizmatlari do'koni\n\n"
@@ -243,8 +251,8 @@ async def cmd_start(message: types.Message):
                         f"<tg-emoji emoji-id=\"5368324170671202286\">⭐</tg-emoji> <b>+0.50 звезды</b> зачислено на ваш счёт!"
                     )
                 await bot.send_message(referrer_id, ref_text, parse_mode="HTML")
-            except:
-                pass
+            except Exception as e:
+                logging.error(f"Referral notify error: {e}")
     welcome_text = get_premium_welcome(user_mention, lang)
     
     photo_sent = False
@@ -326,8 +334,8 @@ async def check_sub_callback(callback: types.CallbackQuery):
                             f"<tg-emoji emoji-id=\"5368324170671202286\">⭐</tg-emoji> <b>+0.50 звезды</b> зачислено на ваш счёт!"
                         )
                     await bot.send_message(row[0], ref_text, parse_mode="HTML")
-                except:
-                    pass
+                except Exception as e:
+                    logging.error(f"Referral notify (check_sub) error: {e}")
 
         await callback.message.delete()
         welcome_text = get_premium_welcome(user_mention, lang)

@@ -333,10 +333,13 @@ def add_referral(referrer_id, referred_id, reward=0.5):
             conn.commit()
             conn.close()
             return True
-    except:
-        pass
-    conn.close()
-    return False
+        conn.close()
+        return False
+    except Exception as e:
+        import logging
+        logging.error(f"add_referral error: {e}")
+        conn.close()
+        return False
 
 def get_referral_stats(user_id):
     """Получить статистику рефералов пользователя"""
