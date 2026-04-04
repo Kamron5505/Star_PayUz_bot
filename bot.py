@@ -51,6 +51,14 @@ def uz_now():
     """Текущее время в Узбекистане (UTC+5)"""
     return datetime.now(UZ_TZ).strftime('%Y-%m-%d %H:%M:%S')
 
+def get_star_price() -> int:
+    """Цена за 1 звезду — берётся из БД, дефолт 245"""
+    val = database.get_setting('star_price')
+    try:
+        return int(val) if val else 245
+    except Exception:
+        return 245
+
 def is_working_hours():
     """Проверка рабочего времени 09:00–22:00 по Ташкенту"""
     now = datetime.now(UZ_TZ)
@@ -135,6 +143,9 @@ class EditPriceStates(StatesGroup):
 
 class ChannelSetupStates(StatesGroup):
     waiting_for_channel = State()
+
+class StarPriceStates(StatesGroup):
+    waiting_for_price = State()
 
 class ReviewStates(StatesGroup):
     waiting_for_review = State()
@@ -624,7 +635,7 @@ async def username_received(message: types.Message, state: FSMContext):
 
         # Если price всё ещё 0 и есть stars_count — пересчитаем
         if price == 0 and stars_count > 0:
-            price = stars_count * 245
+            price = stars_count * get_star_price()
 
         if category == "stars":
             # Для Stars показываем сводку заказа с кнопками подтверждения
@@ -1367,7 +1378,7 @@ async def stars_count_received(message: types.Message, state: FSMContext):
         return
     
     # Рассчитываем сумму
-    price_per_star = 245
+    price_per_star = get_star_price()
     total_price = stars_count * price_per_star
     
     # Сохраняем количество, общую сумму и обновляем service_name
@@ -1383,7 +1394,7 @@ async def stars_count_received(message: types.Message, state: FSMContext):
     
     if lang == "uz":
         text = (
-            f"<tg-emoji emoji-id=\"4965219701572503640\">💰</tg-emoji> <b>1 star narxi: 245 so'm</b>\n"
+            f"<tg-emoji emoji-id=\"4965219701572503640\">💰</tg-emoji> <b>1 star narxi: {get_star_price()} so'm</b>\n"
             f"<tg-emoji emoji-id=\"4920593664222168414\">🌟</tg-emoji> <b>{stars_count} stars = {total_price:,} so'm bo'ladi</b>\n\n"
             f"<tg-emoji emoji-id=\"5373012449597335010\">👤</tg-emoji> <b>Qaysi profilga olasiz? Username yozing...</b>\n"
             f"<tg-emoji emoji-id=\"5458382591121964689\">✍️</tg-emoji> <b>Format: @username yoki username</b>\n\n"
@@ -1391,7 +1402,7 @@ async def stars_count_received(message: types.Message, state: FSMContext):
         )
     else:
         text = (
-            f"<tg-emoji emoji-id=\"4965219701572503640\">💰</tg-emoji> <b>Цена 1 star: 245 сум</b>\n"
+            f"<tg-emoji emoji-id=\"4965219701572503640\">💰</tg-emoji> <b>Цена 1 star: {get_star_price()} сум</b>\n"
             f"<tg-emoji emoji-id=\"4920593664222168414\">🌟</tg-emoji> <b>{stars_count} stars = {total_price:,} сум</b>\n\n"
             f"<tg-emoji emoji-id=\"5373012449597335010\">👤</tg-emoji> <b>На какой профиль? Напишите username...</b>\n"
             f"<tg-emoji emoji-id=\"5458382591121964689\">✍️</tg-emoji> <b>Формат: @username или username</b>\n\n"
@@ -1430,7 +1441,7 @@ async def payment_selected(callback: types.CallbackQuery, state: FSMContext):
         if category == "stars" and stars_count > 0:
             payment_info += (
                 f"🌟 <b>Stars soni:</b> {stars_count} ta\n"
-                f"💰 <b>1 star narxi:</b> 245 so'm\n"
+                f"💰 <b>1 star narxi:</b> {get_star_price()} so'm\n"
                 f"💰 <b>Jami summa:</b> <b>{price:,} so'm</b>\n"
             )
         else:
@@ -1466,7 +1477,7 @@ async def payment_selected(callback: types.CallbackQuery, state: FSMContext):
         if category == "stars" and stars_count > 0:
             payment_info += (
                 f"🌟 <b>Количество stars:</b> {stars_count} шт\n"
-                f"💰 <b>Цена 1 star:</b> 245 сум\n"
+                f"💰 <b>Цена 1 star:</b> {get_star_price()} сум\n"
                 f"💰 <b>Общая сумма:</b> <b>{price:,} сум</b>\n"
             )
         else:
@@ -1566,11 +1577,11 @@ async def payment_proof_received(message: types.Message, state: FSMContext):
             if category == "stars" and stars_count > 0:
                 if lang == "uz":
                     admin_caption += f"⭐️ Stars soni: {stars_count} ta\n"
-                    admin_caption += f"💵 1 star narxi: 245 so'm\n"
+                    admin_caption += f"💵 1 star narxi: {get_star_price()} so'm\n"
                     admin_caption += f"💰 Jami summa: {price:,} so'm\n"
                 else:
                     admin_caption += f"⭐️ Количество Stars: {stars_count}\n"
-                    admin_caption += f"💵 Цена 1 star: 245 сум\n"
+                    admin_caption += f"💵 Цена 1 star: {get_star_price()} сум\n"
                     admin_caption += f"💰 Сумма: {price:,} сум\n"
             else:
                 if lang == "uz":
@@ -1990,14 +2001,14 @@ async def show_stars_menu(callback: types.CallbackQuery, products, lang):
     if lang == "uz":
         text = (
             "<tg-emoji emoji-id=\"5951810621887484519\">⭐️</tg-emoji> <b>Telegram Stars</b>\n\n"
-            "<code>1 star = 245 so'm\n"
+            f"<code>1 star = {get_star_price()} so'm\n"
             "Min: 50 | Max: 1000000</code>\n\n"
             "<tg-emoji emoji-id=\"6269085886177087845\">➡️</tg-emoji> Tanlang:"
         )
     else:
         text = (
             "<tg-emoji emoji-id=\"5951810621887484519\">⭐️</tg-emoji> <b>Telegram Stars</b>\n\n"
-            "<code>1 star = 245 сум\n"
+            f"<code>1 star = {get_star_price()} сум\n"
             "Мин: 50 | Макс: 1000000</code>\n\n"
             "<tg-emoji emoji-id=\"6269085886177087845\">➡️</tg-emoji> Выберите:"
         )
@@ -2229,14 +2240,14 @@ async def custom_stars_selected(callback: types.CallbackQuery, state: FSMContext
         text = (
             "<tg-emoji emoji-id=\"4965219701572503640\">💰</tg-emoji> <b>Kerakli Stars miqdorini kiriting</b>\n"
             "<tg-emoji emoji-id=\"5458382591121964689\">✍️</tg-emoji> <b>Masalan: <code>100, 250, 1000</code></b>\n"
-            "<tg-emoji emoji-id=\"5201873447554145566\">💵</tg-emoji> <b>1 <tg-emoji emoji-id=\"5897920748101571572\">🌟</tg-emoji> = 245 so'm</b>\n"
+            f"<tg-emoji emoji-id=\"5201873447554145566\">💵</tg-emoji> <b>1 <tg-emoji emoji-id=\"5897920748101571572\">🌟</tg-emoji> = {get_star_price()} so'm</b>\n"
             "<tg-emoji emoji-id=\"5460991276948143687\">⚡️</tg-emoji> <b>Narx avtomatik hisoblanadi va sizga ko'rsatiladi</b>"
         )
     else:
         text = (
             "<tg-emoji emoji-id=\"4965219701572503640\">💰</tg-emoji> <b>Введите нужное количество Stars</b>\n"
             "<tg-emoji emoji-id=\"5458382591121964689\">✍️</tg-emoji> <b>Например: <code>100, 250, 1000</code></b>\n"
-            "<tg-emoji emoji-id=\"5201873447554145566\">💵</tg-emoji> <b>1 <tg-emoji emoji-id=\"5897920748101571572\">🌟</tg-emoji> = 245 сум</b>\n"
+            f"<tg-emoji emoji-id=\"5201873447554145566\">💵</tg-emoji> <b>1 <tg-emoji emoji-id=\"5897920748101571572\">🌟</tg-emoji> = {get_star_price()} сум</b>\n"
             "<tg-emoji emoji-id=\"5460991276948143687\">⚡️</tg-emoji> <b>Цена будет автоматически рассчитана и показана вам</b>"
         )
 
@@ -2314,7 +2325,7 @@ async def product_selected(callback: types.CallbackQuery, state: FSMContext):
         # Формируем продающий текст для Stars
         if lang == "uz":
             text = (
-                f"<tg-emoji emoji-id=\"5417924076503062111\">💰</tg-emoji> <b>1 star narxi: 245 so'm</b>\n"
+                f"<tg-emoji emoji-id=\"5417924076503062111\">💰</tg-emoji> <b>1 star narxi: {get_star_price()} so'm</b>\n"
                 f"<tg-emoji emoji-id=\"5951810621887484519\">⭐️</tg-emoji> <b>{stars_count} stars = {price:,} so'm</b>\n\n"
                 f"<tg-emoji emoji-id=\"5373012449597335010\">👤</tg-emoji> <b>Qaysi profilga olasiz?</b>\n"
                 f"Username yozing...\n"
@@ -2323,7 +2334,7 @@ async def product_selected(callback: types.CallbackQuery, state: FSMContext):
             )
         else:
             text = (
-                f"<tg-emoji emoji-id=\"5417924076503062111\">💰</tg-emoji> <b>Цена 1 star: 245 сум</b>\n"
+                f"<tg-emoji emoji-id=\"5417924076503062111\">💰</tg-emoji> <b>Цена 1 star: {get_star_price()} сум</b>\n"
                 f"<tg-emoji emoji-id=\"5951810621887484519\">⭐️</tg-emoji> <b>{stars_count} stars = {price:,} сум</b>\n\n"
                 f"<tg-emoji emoji-id=\"5373012449597335010\">👤</tg-emoji> <b>На какой профиль?</b>\n"
                 f"Напишите username...\n"
@@ -3464,7 +3475,45 @@ async def channel_setup_received(message: types.Message, state: FSMContext):
         return
     await state.clear()
 
-@dp.message(AdminAuthStates.waiting_for_login)
+# ─── ЦЕНА ЗВЕЗДЫ ─────────────────────────────────────────────────────────────
+
+@dp.message(F.text == "⭐ Звезда нархи")
+async def admin_star_price_start(message: types.Message, state: FSMContext):
+    if message.from_user.id not in config.ADMIN_IDS:
+        return
+    cur = get_star_price()
+    await message.answer(
+        f"⭐ <b>1 звезда нархи</b>\n\n"
+        f"Hozirgi narx: <b>{cur} so'm</b>\n\n"
+        f"Yangi narxni kiriting (faqat raqam):\n"
+        f"Misol: <code>240</code>",
+        parse_mode="HTML"
+    )
+    await state.set_state(StarPriceStates.waiting_for_price)
+
+@dp.message(StarPriceStates.waiting_for_price)
+async def admin_star_price_set(message: types.Message, state: FSMContext):
+    if message.from_user.id not in config.ADMIN_IDS:
+        return
+    try:
+        new_price = int(message.text.strip().replace(" ", "").replace(",", ""))
+        if new_price <= 0:
+            raise ValueError
+    except ValueError:
+        await message.answer("❌ Faqat musbat raqam kiriting! Misol: <code>240</code>", parse_mode="HTML")
+        return
+    database.set_setting('star_price', str(new_price))
+    # Показываем пересчитанные цены
+    counts = [50, 75, 100, 150, 200, 250, 300, 500, 1000]
+    preview = "\n".join(f"  {c} ⭐ = {c * new_price:,} so'm" for c in counts)
+    await message.answer(
+        f"✅ <b>Narx yangilandi!</b>\n\n"
+        f"⭐ 1 star = <b>{new_price} so'm</b>\n\n"
+        f"📊 Yangi narxlar:\n{preview}",
+        reply_markup=keyboards.admin_menu(),
+        parse_mode="HTML"
+    )
+    await state.clear()
 async def admin_login_received(message: types.Message, state: FSMContext):
     await state.clear()
 
