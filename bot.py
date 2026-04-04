@@ -129,6 +129,13 @@ class AddProductStates(StatesGroup):
     waiting_for_desc_ru = State()
     waiting_for_price = State()
 
+class EditPriceStates(StatesGroup):
+    waiting_for_product = State()
+    waiting_for_new_price = State()
+
+class ChannelSetupStates(StatesGroup):
+    waiting_for_channel = State()
+
 class ReviewStates(StatesGroup):
     waiting_for_review = State()
 
@@ -136,17 +143,21 @@ class DeliveryProofStates(StatesGroup):
     waiting_for_proof = State()
 
 async def check_subscription(user_id):
+    # Берём канал из БД (если админ менял), иначе из config
+    channel_id = database.get_setting('sub_channel_id')
+    channel_uz = database.get_setting('sub_channel_username') or config.CHANNEL_UZ
     try:
-        member = await bot.get_chat_member(config.CHANNEL_ID, user_id)
+        cid = int(channel_id) if channel_id else config.CHANNEL_ID
+        member = await bot.get_chat_member(cid, user_id)
         return member.status in ['member', 'administrator', 'creator']
     except Exception as e:
         logging.error(f"Subscription check error (ID): {e}")
         try:
-            member = await bot.get_chat_member(config.CHANNEL_UZ, user_id)
+            member = await bot.get_chat_member(channel_uz, user_id)
             return member.status in ['member', 'administrator', 'creator']
         except Exception as e2:
             logging.error(f"Subscription check error (username): {e2}")
-            return False  # Если не можем проверить - блокируем
+            return False
 
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
@@ -226,7 +237,7 @@ async def cmd_start(message: types.Message):
             )
         
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="📢 Kanalga obuna / Подписаться", url=config.CHANNEL_URL)],
+            [InlineKeyboardButton(text="📢 Kanalga obuna / Подписаться", url=database.get_setting('sub_channel_url') or config.CHANNEL_URL)],
             [InlineKeyboardButton(text="✅ Obunani tekshirish / Проверить", callback_data="check_subscription")]
         ])
         
@@ -307,7 +318,7 @@ async def language_selected(callback: types.CallbackQuery):
             )
         
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="📢 Kanalga obuna / Подписаться", url=config.CHANNEL_URL)],
+            [InlineKeyboardButton(text="📢 Kanalga obuna / Подписаться", url=database.get_setting('sub_channel_url') or config.CHANNEL_URL)],
             [InlineKeyboardButton(text="✅ Obunani tekshirish / Проверить", callback_data="check_subscription")]
         ])
         
@@ -2397,14 +2408,14 @@ async def product_selected(callback: types.CallbackQuery, state: FSMContext):
 
         if lang == "uz":
             text = (
-                f"{gift_tag} <b>{name}</b>\n"
+                f"{gift_tag}\n"
                 f"<tg-emoji emoji-id=\"5417924076503062111\">💰</tg-emoji> <b>{price:,} UZS</b>\n\n"
                 f"<tg-emoji emoji-id=\"5373012449597335010\">👤</tg-emoji> <b>Username: @username</b>\n\n"
                 f"<tg-emoji emoji-id=\"5461137215641895106\">⚠️</tg-emoji> <b>Sovgʻa shu akkauntga yuboriladi</b>"
             )
         else:
             text = (
-                f"{gift_tag} <b>{name}</b>\n"
+                f"{gift_tag}\n"
                 f"<tg-emoji emoji-id=\"5417924076503062111\">💰</tg-emoji> <b>{price:,} UZS</b>\n\n"
                 f"<tg-emoji emoji-id=\"5373012449597335010\">👤</tg-emoji> <b>Username: @username</b>\n\n"
                 f"<tg-emoji emoji-id=\"5461137215641895106\">⚠️</tg-emoji> <b>Подарок на этот аккаунт</b>"
@@ -3329,6 +3340,129 @@ async def admin_list_products(message: types.Message):
         text += f"🆔 <code>{pid}</code> | {cat} | {name_uz} — <b>{price:,} UZS</b>\n"
 
     await message.answer(text, reply_markup=keyboards.admin_menu(), parse_mode="HTML")
+
+# ─── ИЗМЕНЕНИЕ ЦЕНЫ ТОВАРА ───────────────────────────────────────────────────
+
+@dp.message(F.text == "✏️ Нарх ўзгартириш")
+async def admin_edit_price_start(message: types.Message, state: FSMContext):
+    if message.from_user.id not in config.ADMIN_IDS:
+        return
+    products = database.get_all_products()
+    if not products:
+        await message.answer("📭 Hozircha tovarlar yo'q.", reply_markup=keyboards.admin_menu())
+        return
+    buttons = [
+        [InlineKeyboardButton(
+            text=f"#{p[0]} {p[2]} — {p[6]:,} UZS",
+            callback_data=f"editprice_{p[0]}"
+        )]
+        for p in products
+    ]
+    buttons.append([InlineKeyboardButton(text="❌ Bekor qilish", callback_data="editprice_cancel")])
+    await message.answer(
+        "✏️ <b>Qaysi tovar narxini o'zgartirmoqchisiz?</b>",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons),
+        parse_mode="HTML"
+    )
+    await state.set_state(EditPriceStates.waiting_for_product)
+
+@dp.callback_query(F.data.startswith("editprice_"), EditPriceStates.waiting_for_product)
+async def editprice_product_chosen(callback: types.CallbackQuery, state: FSMContext):
+    if callback.data == "editprice_cancel":
+        await state.clear()
+        await callback.message.edit_text("❌ Bekor qilindi")
+        await callback.answer()
+        return
+    product_id = int(callback.data.replace("editprice_", ""))
+    product = database.get_product(product_id)
+    if not product:
+        await callback.answer("Tovar topilmadi!", show_alert=True)
+        return
+    name = product[2]
+    price = product[6]
+    await state.update_data(product_id=product_id, product_name=name)
+    await callback.message.edit_text(
+        f"✏️ <b>{name}</b>\n"
+        f"Hozirgi narx: <b>{price:,} UZS</b>\n\n"
+        f"💰 Yangi narxni kiriting (faqat raqam):\n"
+        f"Misol: <code>49000</code>",
+        parse_mode="HTML"
+    )
+    await state.set_state(EditPriceStates.waiting_for_new_price)
+    await callback.answer()
+
+@dp.message(EditPriceStates.waiting_for_new_price)
+async def editprice_new_price(message: types.Message, state: FSMContext):
+    if message.from_user.id not in config.ADMIN_IDS:
+        return
+    try:
+        new_price = int(message.text.strip().replace(" ", "").replace(",", ""))
+    except ValueError:
+        await message.answer("❌ Faqat raqam kiriting! Misol: <code>49000</code>", parse_mode="HTML")
+        return
+    data = await state.get_data()
+    product_id = data["product_id"]
+    product_name = data["product_name"]
+    database.update_product(product_id, price=new_price)
+    await message.answer(
+        f"✅ <b>Narx yangilandi!</b>\n\n"
+        f"📦 {product_name}\n"
+        f"💰 Yangi narx: <b>{new_price:,} UZS</b>",
+        reply_markup=keyboards.admin_menu(),
+        parse_mode="HTML"
+    )
+    await state.clear()
+
+# ─── НАСТРОЙКА КАНАЛА ────────────────────────────────────────────────────────
+
+@dp.message(F.text == "📢 Канал созлаш")
+async def admin_channel_setup(message: types.Message, state: FSMContext):
+    if message.from_user.id not in config.ADMIN_IDS:
+        return
+    cur_id = database.get_setting('sub_channel_id') or config.CHANNEL_ID
+    cur_url = database.get_setting('sub_channel_url') or config.CHANNEL_URL
+    await message.answer(
+        f"📢 <b>Kanal sozlamalari</b>\n\n"
+        f"Hozirgi kanal ID: <code>{cur_id}</code>\n"
+        f"Hozirgi URL: <code>{cur_url}</code>\n\n"
+        f"Yangi kanalning <b>ID</b> yoki <b>@username</b>ini yuboring:\n\n"
+        f"<i>Misol: <code>-1001234567890</code> yoki <code>@MyChannel</code></i>\n\n"
+        f"⚠️ Bot kanalda <b>admin</b> bo'lishi kerak!",
+        parse_mode="HTML"
+    )
+    await state.set_state(ChannelSetupStates.waiting_for_channel)
+
+@dp.message(ChannelSetupStates.waiting_for_channel)
+async def channel_setup_received(message: types.Message, state: FSMContext):
+    if message.from_user.id not in config.ADMIN_IDS:
+        return
+    text = message.text.strip()
+    try:
+        chat = await bot.get_chat(text)
+        database.set_setting('sub_channel_id', str(chat.id))
+        username = f"@{chat.username}" if chat.username else text
+        database.set_setting('sub_channel_username', username)
+        url = f"https://t.me/{chat.username}" if chat.username else config.CHANNEL_URL
+        database.set_setting('sub_channel_url', url)
+        await message.answer(
+            f"✅ <b>Kanal muvaffaqiyatli o'rnatildi!</b>\n\n"
+            f"📢 Kanal: <b>{chat.title}</b>\n"
+            f"🆔 ID: <code>{chat.id}</code>\n"
+            f"🔗 Link: {url}",
+            reply_markup=keyboards.admin_menu(),
+            parse_mode="HTML"
+        )
+    except Exception as e:
+        await message.answer(
+            f"❌ <b>Kanal topilmadi!</b>\n\n"
+            f"Tekshiring:\n"
+            f"• Bot kanalda admin bo'lishi kerak\n"
+            f"• ID yoki @username to'g'ri bo'lishi kerak\n\n"
+            f"Xato: <code>{e}</code>",
+            parse_mode="HTML"
+        )
+        return
+    await state.clear()
 
 @dp.message(AdminAuthStates.waiting_for_login)
 async def admin_login_received(message: types.Message, state: FSMContext):

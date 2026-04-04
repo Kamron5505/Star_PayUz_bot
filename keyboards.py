@@ -73,6 +73,7 @@ def admin_menu():
             [KeyboardButton(text="🗑 Удалить заказы"), KeyboardButton(text="📣 Опубликовать заказ")],
             [KeyboardButton(text="📤 Отзыв юбориш"), KeyboardButton(text="📢 Рассылка")],
             [KeyboardButton(text="➕ Товар қўшиш"), KeyboardButton(text="📦 Товарлар рўйхати")],
+            [KeyboardButton(text="✏️ Нарх ўзгартириш"), KeyboardButton(text="📢 Канал созлаш")],
             [KeyboardButton(text="◀️ Выход")]
         ],
         resize_keyboard=True

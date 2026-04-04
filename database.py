@@ -81,7 +81,34 @@ def init_db():
         cursor.execute("ALTER TABLE products ADD COLUMN emoji_id TEXT DEFAULT ''")
     except:
         pass
-    
+
+    # Таблица настроек (каналы, конфиги)
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT
+        )
+    ''')
+
+    conn.commit()
+    conn.close()
+
+
+def get_setting(key, default=None):
+    """Получить настройку"""
+    conn = sqlite3.connect(config.DATABASE_FILE)
+    cursor = conn.cursor()
+    cursor.execute('SELECT value FROM settings WHERE key = ?', (key,))
+    row = cursor.fetchone()
+    conn.close()
+    return row[0] if row else default
+
+
+def set_setting(key, value):
+    """Сохранить настройку"""
+    conn = sqlite3.connect(config.DATABASE_FILE)
+    cursor = conn.cursor()
+    cursor.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', (key, str(value)))
     conn.commit()
     conn.close()
 
