@@ -3,6 +3,7 @@
 Клавиатуры бота
 """
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 import config
 
 def language_keyboard():
@@ -18,25 +19,27 @@ def language_keyboard():
 def main_menu(lang="uz"):
     """Главное меню"""
     from translations import get_text_simple
-    
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="💎 Premium", callback_data="category_premium")],
-        [InlineKeyboardButton(text="🌟 Stars", callback_data="category_stars")],
-        [InlineKeyboardButton(text="⚡️ Boost", callback_data="category_boost")],
-        [InlineKeyboardButton(text="🎁 Gifts", callback_data="category_gifts")],
-        [InlineKeyboardButton(text="🎮 Robux", callback_data="category_robux")],
-        [
-            InlineKeyboardButton(text=get_text_simple(lang, "help_button"), callback_data="help"),
-            InlineKeyboardButton(text=get_text_simple(lang, "contact_button"), callback_data="contact")
-        ],
-        [
-            InlineKeyboardButton(text=get_text_simple(lang, "stats_button"), callback_data="statistics"),
-            InlineKeyboardButton(text="🌐 Язык", callback_data="change_language")
-        ],
-        [InlineKeyboardButton(text="📋 Buyurtmalarim" if lang == "uz" else "📋 Мои заказы", callback_data="my_orders")],
-        [InlineKeyboardButton(text="👥 Referal" if lang == "uz" else "👥 Реферал", callback_data="referral")]
-    ])
-    return keyboard
+    from aiogram.utils.keyboard import InlineKeyboardBuilder
+
+    builder = InlineKeyboardBuilder()
+
+    # Основные категории — по одной в ряд, крупно
+    builder.button(text="💎 Premium",        callback_data="category_premium")
+    builder.button(text="⭐️ Stars",          callback_data="category_stars")
+    builder.button(text="⚡️ Boost",          callback_data="category_boost")
+    builder.button(text="🎁 Gifts",          callback_data="category_gifts")
+    builder.button(text="🎮 Robux",          callback_data="category_robux")
+    # Вспомогательные — по 2 в ряд
+    builder.button(text="❓ " + get_text_simple(lang, "help_button"),    callback_data="help")
+    builder.button(text="📞 " + get_text_simple(lang, "contact_button"), callback_data="contact")
+    builder.button(text="📊 " + get_text_simple(lang, "stats_button"),   callback_data="statistics")
+    builder.button(text="🌐 Til / Язык",     callback_data="change_language")
+    builder.button(text="📋 Buyurtmalarim" if lang == "uz" else "📋 Мои заказы", callback_data="my_orders")
+    builder.button(text="👥 Referal",        callback_data="referral")
+
+    # Раскладка: 5 одиночных + 2+2 + 1+1
+    builder.adjust(1, 1, 1, 1, 1, 2, 2, 1, 1)
+    return builder.as_markup()
 
 def payment_methods():
     """Способы оплаты"""
