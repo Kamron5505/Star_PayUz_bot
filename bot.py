@@ -40,6 +40,8 @@ async def safe_edit_message(callback, text, reply_markup=None, parse_mode="HTML"
                 pass
             await callback.message.answer(text, reply_markup=reply_markup, parse_mode=parse_mode)
 
+
+
 logging.basicConfig(level=logging.INFO)
 
 from datetime import timezone, timedelta, datetime
@@ -53,6 +55,8 @@ def is_working_hours():
     """Проверка рабочего времени 09:00–22:00 по Ташкенту"""
     now = datetime.now(UZ_TZ)
     return 9 <= now.hour < 22
+
+
 
 bot = Bot(token=config.BOT_TOKEN)
 storage = MemoryStorage()
@@ -74,6 +78,7 @@ class WorkingHoursMiddleware(BaseMiddleware):
         if user and user.id in config.ADMIN_IDS:
             return await handler(event, data)
 
+        # Проверяем рабочее время
         if not is_working_hours():
             # Отвечаем только на сообщения и callback, не на остальное
             if isinstance(event, types.Message):
@@ -114,6 +119,15 @@ class BroadcastStates(StatesGroup):
 class AdminAuthStates(StatesGroup):
     waiting_for_login = State()
     waiting_for_password = State()
+
+class AddProductStates(StatesGroup):
+    waiting_for_category = State()
+    waiting_for_emoji_id = State()
+    waiting_for_name_uz = State()
+    waiting_for_name_ru = State()
+    waiting_for_desc_uz = State()
+    waiting_for_desc_ru = State()
+    waiting_for_price = State()
 
 class ReviewStates(StatesGroup):
     waiting_for_review = State()
@@ -279,7 +293,7 @@ async def language_selected(callback: types.CallbackQuery):
     database.set_user_language(callback.from_user.id, lang)
     user_mention = f"@{callback.from_user.username}" if callback.from_user.username else callback.from_user.first_name
     
-    # Проверяем подписку после выбора языка
+    # Проверяем подписку после выбора языка 
     if not await check_subscription(callback.from_user.id):
         if lang == "uz":
             sub_text = (
@@ -1511,6 +1525,8 @@ async def payment_proof_received(message: types.Message, state: FSMContext):
 
     order_id = database.create_order(message.from_user.id, service_name, price, payment_method)
     logging.info(f"[ORDER CREATED] order_id={order_id} user={message.from_user.id} service={service_name} price={price}")
+
+
 
     # Отправляем подтверждение пользователю
     await message.answer(get_premium_order_accepted(order_id, lang), reply_markup=keyboards.back_to_menu(lang), parse_mode="HTML")
@@ -3166,6 +3182,171 @@ async def cmd_admin(message: types.Message, state: FSMContext):
         reply_markup=keyboards.admin_menu(),
         parse_mode="HTML"
     )
+
+# ─── ДОБАВЛЕНИЕ ТОВАРА ───────────────────────────────────────────────────────
+
+PRODUCT_CATEGORIES_LIST = [
+    ("premium", "💎 Premium"),
+    ("stars",   "🌟 Stars"),
+    ("boost",   "⚡️ Boost"),
+    ("gifts",   "🎁 Gifts"),
+    ("robux",   "🎮 Robux"),
+]
+
+@dp.message(F.text == "➕ Товар қўшиш")
+async def admin_add_product_start(message: types.Message, state: FSMContext):
+    if message.from_user.id not in config.ADMIN_IDS:
+        return
+    buttons = [
+        [InlineKeyboardButton(text=label, callback_data=f"addprod_cat_{key}")]
+        for key, label in PRODUCT_CATEGORIES_LIST
+    ]
+    buttons.append([InlineKeyboardButton(text="❌ Bekor qilish", callback_data="addprod_cancel")])
+    await message.answer(
+        "📦 <b>Yangi tovar qo'shish</b>\n\nKategoriyani tanlang:",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons),
+        parse_mode="HTML"
+    )
+    await state.set_state(AddProductStates.waiting_for_category)
+
+@dp.callback_query(F.data.startswith("addprod_cat_"), AddProductStates.waiting_for_category)
+async def addprod_category(callback: types.CallbackQuery, state: FSMContext):
+    category = callback.data.replace("addprod_cat_", "")
+    await state.update_data(category=category)
+    await callback.message.edit_text(
+        "🆔 <b>Premium emoji ID kiriting</b>\n\n"
+        "Misol: <code>5368324170671202286</code>\n\n"
+        "Agar emoji kerak bo'lmasa — <code>0</code> yuboring",
+        parse_mode="HTML"
+    )
+    await state.set_state(AddProductStates.waiting_for_emoji_id)
+    await callback.answer()
+
+@dp.callback_query(F.data == "addprod_cancel")
+async def addprod_cancel(callback: types.CallbackQuery, state: FSMContext):
+    await state.clear()
+    await callback.message.edit_text("❌ Bekor qilindi")
+    await callback.answer()
+
+@dp.message(AddProductStates.waiting_for_emoji_id)
+async def addprod_emoji_id(message: types.Message, state: FSMContext):
+    if message.from_user.id not in config.ADMIN_IDS:
+        return
+    emoji_id = message.text.strip()
+    await state.update_data(emoji_id=emoji_id)
+    await message.answer(
+        "🇺🇿 <b>Tovar nomini O'zbek tilida kiriting:</b>",
+        parse_mode="HTML"
+    )
+    await state.set_state(AddProductStates.waiting_for_name_uz)
+
+@dp.message(AddProductStates.waiting_for_name_uz)
+async def addprod_name_uz(message: types.Message, state: FSMContext):
+    if message.from_user.id not in config.ADMIN_IDS:
+        return
+    await state.update_data(name_uz=message.text.strip())
+    await message.answer(
+        "🇷🇺 <b>Введите название товара на русском:</b>",
+        parse_mode="HTML"
+    )
+    await state.set_state(AddProductStates.waiting_for_name_ru)
+
+@dp.message(AddProductStates.waiting_for_name_ru)
+async def addprod_name_ru(message: types.Message, state: FSMContext):
+    if message.from_user.id not in config.ADMIN_IDS:
+        return
+    await state.update_data(name_ru=message.text.strip())
+    await message.answer(
+        "📝 <b>Tavsifni O'zbek tilida kiriting:</b>\n"
+        "<i>Agar kerak bo'lmasa — <code>-</code> yuboring</i>",
+        parse_mode="HTML"
+    )
+    await state.set_state(AddProductStates.waiting_for_desc_uz)
+
+@dp.message(AddProductStates.waiting_for_desc_uz)
+async def addprod_desc_uz(message: types.Message, state: FSMContext):
+    if message.from_user.id not in config.ADMIN_IDS:
+        return
+    text = message.text.strip()
+    await state.update_data(desc_uz="" if text == "-" else text)
+    await message.answer(
+        "📝 <b>Введите описание на русском:</b>\n"
+        "<i>Если не нужно — отправьте <code>-</code></i>",
+        parse_mode="HTML"
+    )
+    await state.set_state(AddProductStates.waiting_for_desc_ru)
+
+@dp.message(AddProductStates.waiting_for_desc_ru)
+async def addprod_desc_ru(message: types.Message, state: FSMContext):
+    if message.from_user.id not in config.ADMIN_IDS:
+        return
+    text = message.text.strip()
+    await state.update_data(desc_ru="" if text == "-" else text)
+    await message.answer(
+        "💰 <b>Narxni kiriting (UZS, faqat raqam):</b>\n"
+        "Misol: <code>49000</code>",
+        parse_mode="HTML"
+    )
+    await state.set_state(AddProductStates.waiting_for_price)
+
+@dp.message(AddProductStates.waiting_for_price)
+async def addprod_price(message: types.Message, state: FSMContext):
+    if message.from_user.id not in config.ADMIN_IDS:
+        return
+    try:
+        price = int(message.text.strip().replace(" ", "").replace(",", ""))
+    except ValueError:
+        await message.answer("❌ Faqat raqam kiriting! Misol: <code>49000</code>", parse_mode="HTML")
+        return
+
+    data = await state.get_data()
+    category  = data.get("category", "")
+    emoji_id  = data.get("emoji_id", "0")
+    name_uz   = data.get("name_uz", "")
+    name_ru   = data.get("name_ru", "")
+    desc_uz   = data.get("desc_uz", "")
+    desc_ru   = data.get("desc_ru", "")
+
+    # Формируем отображаемое имя с эмодзи если есть ID
+    if emoji_id and emoji_id != "0":
+        display_uz = f'<tg-emoji emoji-id="{emoji_id}">⭐</tg-emoji> {name_uz}'
+        display_ru = f'<tg-emoji emoji-id="{emoji_id}">⭐</tg-emoji> {name_ru}'
+    else:
+        display_uz = name_uz
+        display_ru = name_ru
+
+    product_id = database.add_product(category, display_uz, display_ru, desc_uz, desc_ru, price)
+
+    cat_label = dict(PRODUCT_CATEGORIES_LIST).get(category, category)
+    await message.answer(
+        f"✅ <b>Tovar muvaffaqiyatli qo'shildi!</b>\n\n"
+        f"🆔 ID: <code>{product_id}</code>\n"
+        f"📦 Kategoriya: {cat_label}\n"
+        f"🇺🇿 Nomi: {name_uz}\n"
+        f"🇷🇺 Название: {name_ru}\n"
+        f"💰 Narx: {price:,} UZS",
+        reply_markup=keyboards.admin_menu(),
+        parse_mode="HTML"
+    )
+    await state.clear()
+
+# ─── СПИСОК ТОВАРОВ ──────────────────────────────────────────────────────────
+
+@dp.message(F.text == "📦 Товарлар рўйхати")
+async def admin_list_products(message: types.Message):
+    if message.from_user.id not in config.ADMIN_IDS:
+        return
+    products = database.get_all_products()
+    if not products:
+        await message.answer("📭 Hozircha tovarlar yo'q.", reply_markup=keyboards.admin_menu())
+        return
+
+    text = "📦 <b>Barcha tovarlar:</b>\n\n"
+    for p in products:
+        pid, cat, name_uz, name_ru, desc_uz, desc_ru, price = p
+        text += f"🆔 <code>{pid}</code> | {cat} | {name_uz} — <b>{price:,} UZS</b>\n"
+
+    await message.answer(text, reply_markup=keyboards.admin_menu(), parse_mode="HTML")
 
 @dp.message(AdminAuthStates.waiting_for_login)
 async def admin_login_received(message: types.Message, state: FSMContext):
