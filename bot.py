@@ -1995,82 +1995,56 @@ async def show_premium_menu(callback: types.CallbackQuery, products, lang):
 
 async def show_stars_menu(callback: types.CallbackQuery, products, lang):
     """Показать специальное меню для Stars"""
-    # Отвечаем на callback сразу, чтобы избежать таймаута
     await callback.answer()
-    
+
+    star_price = get_star_price()
+
     if lang == "uz":
         text = (
             "<tg-emoji emoji-id=\"5951810621887484519\">⭐️</tg-emoji> <b>Telegram Stars</b>\n\n"
-            f"<code>1 star = {get_star_price()} so'm\n"
+            f"<code>1 star = {star_price} so'm\n"
             "Min: 50 | Max: 1000000</code>\n\n"
             "<tg-emoji emoji-id=\"6269085886177087845\">➡️</tg-emoji> Tanlang:"
         )
     else:
         text = (
             "<tg-emoji emoji-id=\"5951810621887484519\">⭐️</tg-emoji> <b>Telegram Stars</b>\n\n"
-            f"<code>1 star = {get_star_price()} сум\n"
+            f"<code>1 star = {star_price} сум\n"
             "Мин: 50 | Макс: 1000000</code>\n\n"
             "<tg-emoji emoji-id=\"6269085886177087845\">➡️</tg-emoji> Выберите:"
         )
-    
-    # Создаем клавиатуру с товарами (1 кнопка в ряд для мобильных)
+
+    import re
     keyboard_buttons = []
-    
     for product in products:
         product_id, name_uz, name_ru, desc_uz, desc_ru, price = product
         name = name_uz if lang == "uz" else name_ru
-        
-        # Сокращаем название для кнопки и добавляем цену
-        if "100 Stars" in name_uz or "100 Stars" in name_ru:
-            display_name = "100"
-            button_text = f"⭐ {display_name} stars — {price:,} UZS"
-        elif "500 Stars" in name_uz or "500 Stars" in name_ru:
-            display_name = "500"
-            button_text = f"⭐ {display_name} stars — {price:,} UZS"
-        elif "1000 Stars" in name_uz or "1000 Stars" in name_ru:
-            display_name = "1000"
-            button_text = f"⭐ {display_name} stars — {price:,} UZS"
+        # Извлекаем количество звёзд из названия
+        match = re.search(r'(\d+)', name_uz or "")
+        if match:
+            qty = int(match.group(1))
+            actual_price = qty * star_price
         else:
-            # Убираем скобки с типом для кнопки и звезды
-            clean_name = name.replace("(sotib olish)", "").replace("(покупка)", "").replace("(sotish)", "").replace("(продажа)", "").replace("⭐", "").strip()
-            button_text = f"⭐ {clean_name} — {price:,} UZS"
-        
-        # 1 кнопка в ряд для мобильных
+            actual_price = price
+            qty = 0
+        button_text = f"⭐ {qty} stars — {actual_price:,} UZS" if qty else f"⭐ {name} — {actual_price:,} UZS"
         keyboard_buttons.append([InlineKeyboardButton(text=button_text, callback_data=f"product_{product_id}")])
-    
-    # Добавляем специальную кнопку для покупки произвольного количества
-    if lang == "uz":
-        custom_button_text = "⭐ Boshqa miqdor"
-    else:
-        custom_button_text = "⭐ Другое кол-во"
-    
-    keyboard_buttons.append([InlineKeyboardButton(text=custom_button_text, callback_data="custom_stars")])
-    
-    # Добавляем кнопку назад
+
+    custom_text = "⭐ Boshqa miqdor" if lang == "uz" else "⭐ Другое кол-во"
+    keyboard_buttons.append([InlineKeyboardButton(text=custom_text, callback_data="custom_stars")])
     keyboard_buttons.append([InlineKeyboardButton(text=get_text_simple(lang, "back_menu"), callback_data="back_to_menu")])
-    
     keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
-    
-    # Вместо редактирования, отправляем фото с подписью
+
     try:
         await callback.message.delete()
     except:
-        pass  # Игнорируем ошибку, если не можем удалить
-    
-    # Проверяем, существует ли файл stars.png
+        pass
+
     import os
     if hasattr(config, 'STARS_PHOTO') and os.path.exists(config.STARS_PHOTO):
-        # Отправляем фото с подписью
         photo = types.FSInputFile(config.STARS_PHOTO)
-        await bot.send_photo(
-            callback.from_user.id,
-            photo=photo,
-            caption=text,
-            reply_markup=keyboard,
-            parse_mode="HTML"
-        )
+        await bot.send_photo(callback.from_user.id, photo=photo, caption=text, reply_markup=keyboard, parse_mode="HTML")
     else:
-        # Если фото нет, отправляем текстовое сообщение
         await callback.message.answer(text, reply_markup=keyboard, parse_mode="HTML")
 
 async def show_gifts_menu(callback: types.CallbackQuery, products, lang):
@@ -2308,41 +2282,32 @@ async def product_selected(callback: types.CallbackQuery, state: FSMContext):
 
     # Для Stars - особый формат текста
     if category == "stars":
-        # Определяем количество stars
-        from config import STARS_PRICES
-        stars_count = 0
-        for qty, star_price in STARS_PRICES.items():
-            if star_price == price:
-                stars_count = qty
-                break
+        import re
+        # Извлекаем количество из названия
+        match = re.search(r"(\d+)", name)
+        stars_count = int(match.group(1)) if match else 0
+        # Пересчитываем цену по актуальной цене за звезду
+        actual_price = stars_count * get_star_price() if stars_count else price
 
-        if stars_count == 0:
-            import re
-            match = re.search(r"(\d+)", name)
-            if match:
-                stars_count = int(match.group(1))
-
-        # Формируем продающий текст для Stars
         if lang == "uz":
             text = (
                 f"<tg-emoji emoji-id=\"5417924076503062111\">💰</tg-emoji> <b>1 star narxi: {get_star_price()} so'm</b>\n"
-                f"<tg-emoji emoji-id=\"5951810621887484519\">⭐️</tg-emoji> <b>{stars_count} stars = {price:,} so'm</b>\n\n"
+                f"<tg-emoji emoji-id=\"5951810621887484519\">⭐️</tg-emoji> <b>{stars_count} stars = {actual_price:,} so'm</b>\n\n"
                 f"<tg-emoji emoji-id=\"5373012449597335010\">👤</tg-emoji> <b>Qaysi profilga olasiz?</b>\n"
                 f"Username yozing...\n"
                 f"<tg-emoji emoji-id=\"5350427505805238170\">✍️</tg-emoji> <b>Format: @username</b>\n\n"
-                f"<tg-emoji emoji-id=\"5461137215641895106\">⚠️</tg-emoji> <b>Stars shu akkauntga yuboriladiadi</b>"
+                f"<tg-emoji emoji-id=\"5461137215641895106\">⚠️</tg-emoji> <b>Stars shu akkauntga yuboriladi</b>"
             )
         else:
             text = (
                 f"<tg-emoji emoji-id=\"5417924076503062111\">💰</tg-emoji> <b>Цена 1 star: {get_star_price()} сум</b>\n"
-                f"<tg-emoji emoji-id=\"5951810621887484519\">⭐️</tg-emoji> <b>{stars_count} stars = {price:,} сум</b>\n\n"
+                f"<tg-emoji emoji-id=\"5951810621887484519\">⭐️</tg-emoji> <b>{stars_count} stars = {actual_price:,} сум</b>\n\n"
                 f"<tg-emoji emoji-id=\"5373012449597335010\">👤</tg-emoji> <b>На какой профиль?</b>\n"
                 f"Напишите username...\n"
                 f"<tg-emoji emoji-id=\"5350427505805238170\">✍️</tg-emoji> <b>Формат: @username</b>\n\n"
                 f"<tg-emoji emoji-id=\"5461137215641895106\">⚠️</tg-emoji> <b>Stars на этот аккаунт</b>"
             )
 
-        # Удаляем старое сообщение и отправляем новое
         try:
             await callback.message.delete()
         except:
@@ -2354,7 +2319,7 @@ async def product_selected(callback: types.CallbackQuery, state: FSMContext):
             product_id=product_id,
             category=category,
             service_name=name,
-            price=price,
+            price=actual_price,
             stars_count=stars_count
         )
         await callback.answer()
