@@ -2261,7 +2261,7 @@ async def product_selected(callback: types.CallbackQuery, state: FSMContext):
         await callback.answer()
         return
 
-    product_id, category, name_uz, name_ru, desc_uz, desc_ru, price, is_active = product
+    product_id, category, name_uz, name_ru, desc_uz, desc_ru, price, is_active, emoji_id = product
 
     # Проверяем активен ли товар
     if not is_active:
@@ -2277,6 +2277,12 @@ async def product_selected(callback: types.CallbackQuery, state: FSMContext):
     # Выбираем название и описание на нужном языке
     name = name_uz if lang == "uz" else name_ru
     description = desc_uz if lang == "uz" else desc_ru
+
+    # Формируем тег эмодзи из emoji_id (используется во всех категориях)
+    if emoji_id and emoji_id not in ("0", ""):
+        emoji_tag = f'<tg-emoji emoji-id="{emoji_id}">⭐</tg-emoji>'
+    else:
+        emoji_tag = ""
 
     # Для Stars - особый формат текста
     if category == "stars":
@@ -2352,14 +2358,14 @@ async def product_selected(callback: types.CallbackQuery, state: FSMContext):
     if category == "premium":
         if lang == "uz":
             text = (
-                f"<tg-emoji emoji-id=\"5368766152870742501\">💎</tg-emoji> <b>{name}</b> — {price:,} so'm\n\n"
+                f"{emoji_tag} <b>{name}</b> — {price:,} so'm\n\n"
                 f"<tg-emoji emoji-id=\"5373012449597335010\">👤</tg-emoji> <b>Premium qaysi profilingizga olinadi?</b>\n\n"
                 f"<tg-emoji emoji-id=\"5350427505805238170\">✍️</tg-emoji> <b>Usernameni @ bilan yozing</b>\n"
                 f"<b>Masalan: @Admin</b>"
             )
         else:
             text = (
-                f"<tg-emoji emoji-id=\"5368766152870742501\">💎</tg-emoji> <b>{name}</b> — {price:,} сум\n\n"
+                f"{emoji_tag} <b>{name}</b> — {price:,} сум\n\n"
                 f"<tg-emoji emoji-id=\"5373012449597335010\">👤</tg-emoji> <b>На какой профиль?</b>\n\n"
                 f"<tg-emoji emoji-id=\"5350427505805238170\">✍️</tg-emoji> <b>Напишите username с @</b>\n"
                 f"<b>Например: @Admin</b>"
@@ -2383,39 +2389,22 @@ async def product_selected(callback: types.CallbackQuery, state: FSMContext):
         stars_match = re.search(r'(\d+)\s*⭐', name)
         stars_count = stars_match.group(1) if stars_match else "?"
 
-        # Определяем премиум эмодзи подарка по названию
-        gift_emoji_map = {
-            "💝": "5283228279988309088",
-            "🧸": "5397915559037785261",
-            "🎁": "5199749070830197566",
-            "🌹": "5280947338821524402",
-            "🎂": "5280659198055572187",
-            "🚀": "5445284980978621387",
-            "🍾": "5451905784734574339",
-            "💐": "5280774333243873175",
-            "💎": "5368343974765411150",
-            "🏆": "5280769763398671636",
-            "💍": "5402100905883488232",
-        }
-        # Ищем эмодзи в названии товара
-        gift_emoji_char = "🎁"
-        gift_emoji_id = "5199749070830197566"
-        for emoji_char, emoji_id in gift_emoji_map.items():
-            if emoji_char in name:
-                gift_emoji_char = emoji_char
-                gift_emoji_id = emoji_id
-                break
+        # Используем emoji_id из БД, иначе дефолтный подарок
+        if emoji_id and emoji_id != "0":
+            gift_tag = f'<tg-emoji emoji-id="{emoji_id}">🎁</tg-emoji>'
+        else:
+            gift_tag = "�"
 
         if lang == "uz":
             text = (
-                f"<tg-emoji emoji-id=\"{gift_emoji_id}\">{gift_emoji_char}</tg-emoji> <b>{stars_count} <tg-emoji emoji-id=\"5469641199348363998\">⭐️</tg-emoji> – Hadya</b>\n"
+                f"{gift_tag} <b>{name}</b>\n"
                 f"<tg-emoji emoji-id=\"5417924076503062111\">💰</tg-emoji> <b>{price:,} UZS</b>\n\n"
                 f"<tg-emoji emoji-id=\"5373012449597335010\">👤</tg-emoji> <b>Username: @username</b>\n\n"
                 f"<tg-emoji emoji-id=\"5461137215641895106\">⚠️</tg-emoji> <b>Sovgʻa shu akkauntga yuboriladi</b>"
             )
         else:
             text = (
-                f"<tg-emoji emoji-id=\"{gift_emoji_id}\">{gift_emoji_char}</tg-emoji> <b>{stars_count} <tg-emoji emoji-id=\"5469641199348363998\">⭐️</tg-emoji> – Подарок</b>\n"
+                f"{gift_tag} <b>{name}</b>\n"
                 f"<tg-emoji emoji-id=\"5417924076503062111\">💰</tg-emoji> <b>{price:,} UZS</b>\n\n"
                 f"<tg-emoji emoji-id=\"5373012449597335010\">👤</tg-emoji> <b>Username: @username</b>\n\n"
                 f"<tg-emoji emoji-id=\"5461137215641895106\">⚠️</tg-emoji> <b>Подарок на этот аккаунт</b>"
@@ -3307,15 +3296,8 @@ async def addprod_price(message: types.Message, state: FSMContext):
     desc_uz   = data.get("desc_uz", "")
     desc_ru   = data.get("desc_ru", "")
 
-    # Формируем отображаемое имя с эмодзи если есть ID
-    if emoji_id and emoji_id != "0":
-        display_uz = f'<tg-emoji emoji-id="{emoji_id}">⭐</tg-emoji> {name_uz}'
-        display_ru = f'<tg-emoji emoji-id="{emoji_id}">⭐</tg-emoji> {name_ru}'
-    else:
-        display_uz = name_uz
-        display_ru = name_ru
-
-    product_id = database.add_product(category, display_uz, display_ru, desc_uz, desc_ru, price)
+    # Сохраняем emoji_id отдельно — не вставляем в название
+    product_id = database.add_product(category, name_uz, name_ru, desc_uz, desc_ru, price, emoji_id)
 
     cat_label = dict(PRODUCT_CATEGORIES_LIST).get(category, category)
     await message.answer(

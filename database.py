@@ -71,10 +71,16 @@ def init_db():
             description_uz TEXT,
             description_ru TEXT,
             price INTEGER,
+            emoji_id TEXT DEFAULT '',
             is_active INTEGER DEFAULT 1,
             created_at TEXT
         )
     ''')
+    # Добавляем колонку emoji_id если её нет (для существующих БД)
+    try:
+        cursor.execute("ALTER TABLE products ADD COLUMN emoji_id TEXT DEFAULT ''")
+    except:
+        pass
     
     conn.commit()
     conn.close()
@@ -202,15 +208,15 @@ def get_all_users():
     return users
 
 # Функции для работы с товарами
-def add_product(category, name_uz, name_ru, description_uz, description_ru, price):
+def add_product(category, name_uz, name_ru, description_uz, description_ru, price, emoji_id=''):
     """Добавить товар"""
     conn = sqlite3.connect(config.DATABASE_FILE)
     cursor = conn.cursor()
     
     cursor.execute('''
-        INSERT INTO products (category, name_uz, name_ru, description_uz, description_ru, price, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    ''', (category, name_uz, name_ru, description_uz, description_ru, price, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+        INSERT INTO products (category, name_uz, name_ru, description_uz, description_ru, price, emoji_id, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (category, name_uz, name_ru, description_uz, description_ru, price, emoji_id, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
     
     product_id = cursor.lastrowid
     conn.commit()
@@ -299,7 +305,7 @@ def get_product(product_id):
     cursor = conn.cursor()
     
     cursor.execute('''
-        SELECT product_id, category, name_uz, name_ru, description_uz, description_ru, price, is_active
+        SELECT product_id, category, name_uz, name_ru, description_uz, description_ru, price, is_active, COALESCE(emoji_id, '')
         FROM products 
         WHERE product_id = ?
     ''', (product_id,))
