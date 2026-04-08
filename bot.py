@@ -289,9 +289,7 @@ async def cmd_start(message: types.Message):
                 await bot.send_message(referrer_id, ref_text, parse_mode="HTML")
             except Exception as e:
                 logging.error(f"Referral notify error: {e}")
-    welcome_text = get_premium_welcome(user_mention, lang)
-    
-    photo_sent = False
+    welcome_text = get_premium_welcome(user_mention, lang, user_id=user.id)
     try:
         if hasattr(config, 'BANNER_FILE'):
             import os
@@ -337,7 +335,7 @@ async def language_selected(callback: types.CallbackQuery):
     else:
         # Показываем продающее приветствие
         await callback.answer(get_text_simple(lang, "language_changed"))
-        welcome_text = get_premium_welcome(user_mention, lang)
+        welcome_text = get_premium_welcome(user_mention, lang, user_id=callback.from_user.id)
         await safe_edit_message(callback, welcome_text, reply_markup=keyboards.main_menu(lang))
 
 @dp.callback_query(F.data == "check_subscription")
@@ -374,7 +372,7 @@ async def check_sub_callback(callback: types.CallbackQuery):
                     logging.error(f"Referral notify (check_sub) error: {e}")
 
         await callback.message.delete()
-        welcome_text = get_premium_welcome(user_mention, lang)
+        welcome_text = get_premium_welcome(user_mention, lang, user_id=callback.from_user.id)
         try:
             if hasattr(config, 'BANNER_FILE'):
                 with open(config.BANNER_FILE, 'rb') as photo:
@@ -1813,7 +1811,7 @@ async def delivery_proof_received(message: types.Message, state: FSMContext):
 async def back_to_menu_handler(callback: types.CallbackQuery):
     lang = database.get_user_language(callback.from_user.id)
     user_mention = f"@{callback.from_user.username}" if callback.from_user.username else callback.from_user.first_name
-    welcome_text = get_premium_welcome(user_mention, lang)
+    welcome_text = get_premium_welcome(user_mention, lang, user_id=callback.from_user.id)
     try:
         await safe_edit_message(callback, welcome_text, reply_markup=keyboards.main_menu(lang))
     except:
@@ -3100,8 +3098,7 @@ async def exit_admin(message: types.Message, state: FSMContext):
     
     # Возвращаем обычное меню
     user_mention = f"@{message.from_user.username}" if message.from_user.username else message.from_user.first_name
-    welcome_text = get_premium_welcome(user_mention, lang)
-    
+    welcome_text = get_premium_welcome(user_mention, lang, user_id=message.from_user.id)
     try:
         if hasattr(config, 'BANNER_FILE'):
             import os

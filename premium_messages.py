@@ -5,28 +5,16 @@
 Используем премиум эмодзи через теги <tg-emoji>
 """
 
-def get_premium_welcome(name, lang="ru"):
+def get_premium_welcome(name, lang="ru", user_id=None, balance=0):
     """Приветствие с Premium эмодзи"""
-    if lang == "uz":
-        return f'''<tg-emoji emoji-id="4976940882071651344">👋</tg-emoji> <b>Xush kelibsiz, {name}!</b>
+    uid_line = f'\n┣ <tg-emoji emoji-id="5811989245761426317">🆔</tg-emoji> <b>User ID:</b> <code>{user_id}</code>' if user_id else ""
+    balance_line = f'\n┗ <tg-emoji emoji-id="5472363448404809929">👛</tg-emoji> <b>Balans:</b> {balance:,} so\'m'
 
-<tg-emoji emoji-id="5936259309812846957">🌟</tg-emoji> <b>Bizda siz Telegram Stars va Telegram Premium'ni o'z akkauntingiz uchun so'm orqali xarid qilishingiz mumkin</b><tg-emoji emoji-id="5460991276948143687">🔥</tg-emoji>
-
-<b>Shuningdek, boshqa mashhur xizmatlarni ham arzon narxlarda sotib olish imkoniyati mavjud.</b><tg-emoji emoji-id="5458488840022933066">🛍️</tg-emoji>
-
-<b>Yaxshi xaridlar tilaymiz!</b>
-
-<tg-emoji emoji-id="5406745015365943482">👇</tg-emoji> <b>Kerakli xizmatni tanlang va buyurtma bering!</b>'''
-    else:
-        return f'''<tg-emoji emoji-id="4976940882071651344">👋</tg-emoji> <b>Добро пожаловать, {name}!</b>
-
-<tg-emoji emoji-id="5936259309812846957">🌟</tg-emoji> <b>У нас вы можете купить Telegram Stars и Telegram Premium для своего аккаунта за сумы</b><tg-emoji emoji-id="5460991276948143687">🔥</tg-emoji>
-
-<b>Также есть возможность приобрести другие популярные услуги по выгодным ценам.</b><tg-emoji emoji-id="5458488840022933066">🛍️</tg-emoji>
-
-<b>Желаем удачных покупок!</b>
-
-<tg-emoji emoji-id="5406745015365943482">👇</tg-emoji> <b>Выберите услугу и оформите заказ!</b>'''
+    return (
+        f'<tg-emoji emoji-id="5472427507842032538">👋</tg-emoji> <b>Assalomu alaykum, {name}!</b>'
+        f'{uid_line}'
+        f'{balance_line}'
+    )
 
 
 def get_premium_service_selected(service, price, lang="ru"):
