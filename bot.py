@@ -3512,10 +3512,12 @@ async def set_bot_commands():
 
     from aiogram.types import BotCommandScopeDefault, BotCommandScopeChat
 
-    # Дефолт — узбекский для всех языков
+    # Дефолт — узбекский для всех
     await bot.set_my_commands(commands_uz, scope=BotCommandScopeDefault())
-    # Для узбекскоязычных явно
+    # Явно для узбекского языка интерфейса
     await bot.set_my_commands(commands_uz, language_code="uz")
+    # Явно для русского языка интерфейса
+    await bot.set_my_commands(commands_ru, language_code="ru")
 
     # Для каждого админа — узбекские + /admin
     for admin_id in config.ADMIN_IDS:
