@@ -3512,12 +3512,18 @@ async def set_bot_commands():
 
     from aiogram.types import BotCommandScopeDefault, BotCommandScopeChat
 
-    # Дефолт — узбекский для всех
+    # Сбрасываем старые команды для всех языков
+    for lang_code in ["ru", "en", "uz"]:
+        try:
+            await bot.delete_my_commands(language_code=lang_code)
+        except:
+            pass
+
+    # Узбекский для всех языков интерфейса
     await bot.set_my_commands(commands_uz, scope=BotCommandScopeDefault())
-    # Явно для узбекского языка интерфейса
     await bot.set_my_commands(commands_uz, language_code="uz")
-    # Явно для русского языка интерфейса
-    await bot.set_my_commands(commands_ru, language_code="ru")
+    await bot.set_my_commands(commands_uz, language_code="ru")
+    await bot.set_my_commands(commands_uz, language_code="en")
 
     # Для каждого админа — узбекские + /admin
     for admin_id in config.ADMIN_IDS:
