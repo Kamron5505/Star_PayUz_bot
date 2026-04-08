@@ -17,24 +17,21 @@ def language_keyboard():
 
 def main_menu(lang="uz"):
     """Главное меню"""
-    from translations import get_text_simple
-    
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="💎 Premium", callback_data="category_premium")],
-        [InlineKeyboardButton(text="🌟 Stars", callback_data="category_stars")],
-        [InlineKeyboardButton(text="⚡️ Boost", callback_data="category_boost")],
-        [InlineKeyboardButton(text="🎁 Gifts", callback_data="category_gifts")],
-        [InlineKeyboardButton(text="🎮 Robux", callback_data="category_robux")],
+        [InlineKeyboardButton(text="⭐️ Stars olish",      callback_data="category_stars")],
         [
-            InlineKeyboardButton(text=get_text_simple(lang, "help_button"), callback_data="help"),
-            InlineKeyboardButton(text=get_text_simple(lang, "contact_button"), callback_data="contact")
+            InlineKeyboardButton(text="💎 Premium olish",  callback_data="category_premium"),
+            InlineKeyboardButton(text="🎁 Gift olish",     callback_data="category_gifts"),
         ],
         [
-            InlineKeyboardButton(text=get_text_simple(lang, "stats_button"), callback_data="statistics"),
-            InlineKeyboardButton(text="🌐 Язык", callback_data="change_language")
+            InlineKeyboardButton(text="⚡️ Boost",          callback_data="category_boost"),
+            InlineKeyboardButton(text="🎮 Robux",           callback_data="category_robux"),
         ],
-        [InlineKeyboardButton(text="📋 Buyurtmalarim" if lang == "uz" else "📋 Мои заказы", callback_data="my_orders")],
-        [InlineKeyboardButton(text="👥 Referal" if lang == "uz" else "👥 Реферал", callback_data="referral")]
+        [
+            InlineKeyboardButton(text="💳 Balans to'ldirish", callback_data="statistics"),
+            InlineKeyboardButton(text="👤 Profil",             callback_data="my_orders"),
+        ],
+        [InlineKeyboardButton(text="ℹ️ Yordam",            callback_data="help")],
     ])
     return keyboard
 

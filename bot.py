@@ -214,17 +214,6 @@ async def cmd_start(message: types.Message):
             ]
         ])
         
-        try:
-            if hasattr(config, 'BANNER_FILE'):
-                import os
-                banner_path = config.BANNER_FILE
-                if os.path.exists(banner_path):
-                    photo = types.FSInputFile(banner_path)
-                    await message.answer_photo(photo=photo, caption=welcome_text, reply_markup=keyboard, parse_mode="HTML")
-                    return
-        except Exception as e:
-            logging.error(f"Banner error: {e}")
-        
         await message.answer(welcome_text, reply_markup=keyboard, parse_mode="HTML")
         return
     
@@ -251,17 +240,6 @@ async def cmd_start(message: types.Message):
             [InlineKeyboardButton(text="📢 Kanalga obuna / Подписаться", url=database.get_setting('sub_channel_url') or config.CHANNEL_URL)],
             [InlineKeyboardButton(text="✅ Obunani tekshirish / Проверить", callback_data="check_subscription")]
         ])
-        
-        try:
-            if hasattr(config, 'BANNER_FILE'):
-                import os
-                banner_path = config.BANNER_FILE
-                if os.path.exists(banner_path):
-                    photo = types.FSInputFile(banner_path)
-                    await message.answer_photo(photo=photo, caption=sub_text, reply_markup=keyboard, parse_mode="HTML")
-                    return
-        except Exception as e:
-            logging.error(f"Banner error: {e}")
         
         await message.answer(sub_text, reply_markup=keyboard, parse_mode="HTML")
         return
@@ -290,22 +268,7 @@ async def cmd_start(message: types.Message):
             except Exception as e:
                 logging.error(f"Referral notify error: {e}")
     welcome_text = get_premium_welcome(user_mention, lang, user_id=user.id)
-    try:
-        if hasattr(config, 'BANNER_FILE'):
-            import os
-            banner_path = config.BANNER_FILE
-            if os.path.exists(banner_path):
-                photo = types.FSInputFile(banner_path)
-                await message.answer_photo(photo=photo, caption=welcome_text, reply_markup=keyboards.main_menu(lang), parse_mode="HTML")
-                photo_sent = True
-                logging.info(f"Banner sent from file: {banner_path}")
-            else:
-                logging.warning(f"Banner file not found: {banner_path}")
-    except Exception as e:
-        logging.error(f"Banner error: {e}")
-    
-    if not photo_sent:
-        await message.answer(welcome_text, reply_markup=keyboards.main_menu(lang), parse_mode="HTML")
+    await message.answer(welcome_text, reply_markup=keyboards.main_menu(lang), parse_mode="HTML")
 
 @dp.callback_query(F.data.startswith("lang_"))
 async def language_selected(callback: types.CallbackQuery):
@@ -373,15 +336,7 @@ async def check_sub_callback(callback: types.CallbackQuery):
 
         await callback.message.delete()
         welcome_text = get_premium_welcome(user_mention, lang, user_id=callback.from_user.id)
-        try:
-            if hasattr(config, 'BANNER_FILE'):
-                with open(config.BANNER_FILE, 'rb') as photo:
-                    await bot.send_photo(callback.from_user.id, photo=photo, caption=welcome_text, reply_markup=keyboards.main_menu(lang), parse_mode="HTML")
-            else:
-                await bot.send_photo(callback.from_user.id, photo=config.BANNER_URL, caption=welcome_text, reply_markup=keyboards.main_menu(lang), parse_mode="HTML")
-        except Exception as e:
-            logging.error(f"Banner error: {e}")
-            await bot.send_message(callback.from_user.id, welcome_text, reply_markup=keyboards.main_menu(lang), parse_mode="HTML")
+        await bot.send_message(callback.from_user.id, welcome_text, reply_markup=keyboards.main_menu(lang), parse_mode="HTML")
     else:
         await callback.answer(get_text_simple(lang, "not_subscribed"), show_alert=True)
 
@@ -1816,15 +1771,7 @@ async def back_to_menu_handler(callback: types.CallbackQuery):
         await safe_edit_message(callback, welcome_text, reply_markup=keyboards.main_menu(lang))
     except:
         await callback.message.delete()
-        try:
-            if hasattr(config, 'BANNER_FILE'):
-                with open(config.BANNER_FILE, 'rb') as photo:
-                    await bot.send_photo(callback.from_user.id, photo=photo, caption=welcome_text, reply_markup=keyboards.main_menu(lang), parse_mode="HTML")
-            else:
-                await bot.send_photo(callback.from_user.id, photo=config.BANNER_URL, caption=welcome_text, reply_markup=keyboards.main_menu(lang), parse_mode="HTML")
-        except Exception as e:
-            logging.error(f"Banner error: {e}")
-            await bot.send_message(callback.from_user.id, welcome_text, reply_markup=keyboards.main_menu(lang), parse_mode="HTML")
+        await bot.send_message(callback.from_user.id, welcome_text, reply_markup=keyboards.main_menu(lang), parse_mode="HTML")
     await callback.answer()
 
 @dp.callback_query(F.data.startswith("category_"))
@@ -3099,20 +3046,7 @@ async def exit_admin(message: types.Message, state: FSMContext):
     # Возвращаем обычное меню
     user_mention = f"@{message.from_user.username}" if message.from_user.username else message.from_user.first_name
     welcome_text = get_premium_welcome(user_mention, lang, user_id=message.from_user.id)
-    try:
-        if hasattr(config, 'BANNER_FILE'):
-            import os
-            banner_path = config.BANNER_FILE
-            if os.path.exists(banner_path):
-                photo = types.FSInputFile(banner_path)
-                await message.answer_photo(photo=photo, caption=welcome_text, reply_markup=keyboards.main_menu(lang), parse_mode="HTML")
-            else:
-                await message.answer(welcome_text, reply_markup=keyboards.main_menu(lang), parse_mode="HTML")
-        else:
-            await message.answer(welcome_text, reply_markup=keyboards.main_menu(lang), parse_mode="HTML")
-    except Exception as e:
-        logging.error(f"Banner error: {e}")
-        await message.answer(welcome_text, reply_markup=keyboards.main_menu(lang), parse_mode="HTML")
+    await message.answer(welcome_text, reply_markup=keyboards.main_menu(lang), parse_mode="HTML")
 
 @dp.message(Command("qoida"))
 async def cmd_rules(message: types.Message):
