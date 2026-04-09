@@ -590,33 +590,36 @@ async def username_received(message: types.Message, state: FSMContext):
             price = stars_count * get_star_price()
 
         if category == "stars":
-            # Для Stars показываем сводку заказа с кнопками подтверждения
-            import random
-            import string
-            order_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+            # Показываем карточку с пакетами Stars
+            star_price = get_star_price()
+            products = database.get_products_by_category("stars")
 
-            await state.update_data(order_id=order_id)
+            def btn(text, callback_data, style=None, emoji_id=None):
+                data = {"text": text, "callback_data": callback_data}
+                if style:
+                    data["style"] = style
+                if emoji_id:
+                    data["icon_custom_emoji_id"] = emoji_id
+                return InlineKeyboardButton(**data)
 
-            if lang == "uz":
-                text = (
-                    f"<tg-emoji emoji-id=\"5472250091332993630\">💳</tg-emoji> <b>To'lov ma'lumotlari</b>\n\n"
-                    f"<code>▪️ Turi: ⭐ Telegram Stars\n"
-                    f"▪️ Username: @{username}\n"
-                    f"▪️ Soni: {stars_count}\n"
-                    f"▪️ Summa: {price:,}\n"
-                    f"▪️ ID: [{order_id}]</code>\n\n"
-                    f"<tg-emoji emoji-id=\"5461137215641895106\">⚠️</tg-emoji> <b>Ma'lumotlarni tekshirib, to'lovni tasdiqlashingiz bilan buyurtma sizga avtomatik yuboriladi, agar to'lov 5 daqiqa ichida amalga oshirilmasa, buyurtma avtomatik ravishda bekor qilinadi.</b>"
-                )
-            else:
-                text = (
-                    f"<tg-emoji emoji-id=\"5472250091332993630\">💳</tg-emoji> <b>Информация об оплате</b>\n\n"
-                    f"<code>▪️ Тип: ⭐ Telegram Stars\n"
-                    f"▪️ Username: @{username}\n"
-                    f"▪️ Количество: {stars_count}\n"
-                    f"▪️ Сумма: {price:,}\n"
-                    f"▪️ ID: [{order_id}]</code>\n\n"
-                    f"<tg-emoji emoji-id=\"5461137215641895106\">⚠️</tg-emoji> <b>Проверьте данные и подтвердите оплату. Заказ будет автоматически отправлен вам. Если оплата не будет произведена в течение 5 минут, заказ будет автоматически отменен.</b>"
-                )
+            import re
+            keyboard_buttons = []
+            for p in products:
+                pid, name_uz, name_ru, desc_uz, desc_ru, p_price = p
+                match = re.search(r'(\d+)', name_uz or "")
+                qty = int(match.group(1)) if match else 0
+                actual = qty * star_price if qty else p_price
+                keyboard_buttons.append([btn(f"⭐ {qty} Stars — {actual:,} UZS", f"stars_pkg_{pid}_{qty}")])
+            keyboard_buttons.append([btn("Orqaga", "back_to_menu", style="default", emoji_id="5258236805890710909")])
+
+            text = (
+                f'<tg-emoji emoji-id="5807791714093502248">⭐️</tg-emoji> <b>Stars xarid qilish</b>\n'
+                f'<tg-emoji emoji-id="6035084557378654059">👤</tg-emoji> Qabul qiluvchi: @{username}\n'
+                f'<tg-emoji emoji-id="5258204546391351475">💰</tg-emoji> 1 Stars = {star_price} uzs\n'
+                f'<tg-emoji emoji-id="5258134813302332906">📦</tg-emoji> Paketni tanlang:'
+            )
+            await message.answer(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard_buttons), parse_mode="HTML")
+            return
 
             # Создаем кнопки подтверждения и отмены
             keyboard = InlineKeyboardMarkup(inline_keyboard=[
@@ -1797,7 +1800,7 @@ async def category_selected(callback: types.CallbackQuery):
     
     # Особый формат для Stars категории
     if category == "stars":
-        await show_stars_menu(callback, products, lang)
+        await show_stars_menu(callback, products, lang, state)
         return
     
     # Особый формат для Gifts категории
@@ -1935,7 +1938,7 @@ async def show_premium_menu(callback: types.CallbackQuery, products, lang):
     
     await callback.answer()
 
-async def show_stars_menu(callback: types.CallbackQuery, products, lang):
+async def show_stars_menu(callback: types.CallbackQuery, products, lang, state: FSMContext = None):
     """Stars — сразу запрашиваем username"""
     await callback.answer()
 
@@ -1963,22 +1966,75 @@ async def show_stars_menu(callback: types.CallbackQuery, products, lang):
     except:
         pass
 
+    if state:
+        await state.update_data(category="stars")
+        await state.set_state(OrderStates.waiting_for_username)
+
     await callback.message.answer(text, reply_markup=keyboard, parse_mode="HTML")
 
 @dp.callback_query(F.data == "stars_for_me")
 async def stars_for_me(callback: types.CallbackQuery, state: FSMContext):
-    """Пользователь выбрал 'O'zim uchun' — подставляем его username"""
-    lang = database.get_user_language(callback.from_user.id)
+    """Пользователь выбрал 'O'zim uchun' — подставляем его username и показываем пакеты"""
     username = callback.from_user.username or str(callback.from_user.id)
     await state.update_data(username=username, category="stars")
-    await state.set_state(OrderStates.waiting_for_stars_count)
+
+    star_price = get_star_price()
+    products = database.get_products_by_category("stars")
+
+    def btn(text, callback_data, style=None, emoji_id=None):
+        data = {"text": text, "callback_data": callback_data}
+        if style:
+            data["style"] = style
+        if emoji_id:
+            data["icon_custom_emoji_id"] = emoji_id
+        return InlineKeyboardButton(**data)
+
+    import re
+    keyboard_buttons = []
+    for p in products:
+        pid, name_uz, name_ru, desc_uz, desc_ru, p_price = p
+        match = re.search(r'(\d+)', name_uz or "")
+        qty = int(match.group(1)) if match else 0
+        actual = qty * star_price if qty else p_price
+        keyboard_buttons.append([btn(f"⭐ {qty} Stars — {actual:,} UZS", f"stars_pkg_{pid}_{qty}")])
+    keyboard_buttons.append([btn("Orqaga", "back_to_menu", style="default", emoji_id="5258236805890710909")])
+
     text = (
-        f'<tg-emoji emoji-id="5807791714093502248">⭐️</tg-emoji> <b>Stars xarid qilish</b>\n\n'
-        f'<tg-emoji emoji-id="5231102735817918643">👇</tg-emoji> Kerakli Stars miqdorini kiriting:\n'
-        f"Masol: <code>100, 250, 1000</code>\n\n"
-        f"1 ⭐️ = {get_star_price()} so'm"
+        f'<tg-emoji emoji-id="5807791714093502248">⭐️</tg-emoji> <b>Stars xarid qilish</b>\n'
+        f'<tg-emoji emoji-id="6035084557378654059">👤</tg-emoji> Qabul qiluvchi: @{username}\n'
+        f'<tg-emoji emoji-id="5258204546391351475">💰</tg-emoji> 1 Stars = {star_price} uzs\n'
+        f'<tg-emoji emoji-id="5258134813302332906">📦</tg-emoji> Paketni tanlang:'
     )
-    await callback.message.edit_text(text, parse_mode="HTML")
+    await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard_buttons), parse_mode="HTML")
+    await callback.answer()
+
+@dp.callback_query(F.data.startswith("stars_pkg_"))
+async def stars_pkg_selected(callback: types.CallbackQuery, state: FSMContext):
+    """Выбор пакета Stars"""
+    lang = database.get_user_language(callback.from_user.id)
+    parts = callback.data.split("_")  # stars_pkg_{pid}_{qty}
+    product_id = int(parts[2])
+    qty = int(parts[3])
+    star_price = get_star_price()
+    actual_price = qty * star_price
+    data = await state.get_data()
+    username = data.get("username", "")
+    await state.update_data(
+        product_id=product_id,
+        category="stars",
+        service_name=f"⭐ {qty} Stars",
+        price=actual_price,
+        stars_count=qty
+    )
+    # Переходим к оплате
+    from keyboards import payment_methods
+    text = (
+        f'<tg-emoji emoji-id="5807791714093502248">⭐️</tg-emoji> <b>Stars xarid qilish</b>\n'
+        f'<tg-emoji emoji-id="6035084557378654059">👤</tg-emoji> Qabul qiluvchi: @{username}\n'
+        f'<tg-emoji emoji-id="5258204546391351475">💰</tg-emoji> {qty} Stars = {actual_price:,} uzs\n\n'
+        f"To'lov usulini tanlang:"
+    )
+    await callback.message.edit_text(text, reply_markup=keyboards.payment_methods(), parse_mode="HTML")
     await callback.answer()
 
 async def show_gifts_menu(callback: types.CallbackQuery, products, lang):
