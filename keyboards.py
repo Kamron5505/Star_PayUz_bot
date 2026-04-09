@@ -16,22 +16,31 @@ def language_keyboard():
     return keyboard
 
 def main_menu(lang="uz"):
-    """Главное меню"""
+    """Главное меню — Bot API 9.4 style + icon_custom_emoji_id"""
+
+    def btn(text, callback_data, style=None, emoji_id=None):
+        data = {"text": text, "callback_data": callback_data}
+        if style:
+            data["style"] = style
+        if emoji_id:
+            data["icon_custom_emoji_id"] = emoji_id
+        return InlineKeyboardButton(**data)
+
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="⭐️ Stars olish",      callback_data="category_stars")],
+        [btn("⭐️ Stars olish",         "category_stars",   style="success", emoji_id="5469641199348363998")],
         [
-            InlineKeyboardButton(text="💎 Premium olish",  callback_data="category_premium"),
-            InlineKeyboardButton(text="🎁 Gift olish",     callback_data="category_gifts"),
+            btn("💎 Premium olish",     "category_premium", style="primary", emoji_id="5368766152870742501"),
+            btn("🎁 Gift olish",        "category_gifts",   style="primary", emoji_id="5199749070830197566"),
         ],
         [
-            InlineKeyboardButton(text="⚡️ Boost",          callback_data="category_boost"),
-            InlineKeyboardButton(text="🎮 Robux",           callback_data="category_robux"),
+            btn("⚡️ Boost",             "category_boost",   style="default"),
+            btn("🎮 Robux",             "category_robux",   style="default"),
         ],
         [
-            InlineKeyboardButton(text="💳 Balans to'ldirish", callback_data="statistics"),
-            InlineKeyboardButton(text="👤 Profil",             callback_data="my_orders"),
+            btn("💳 Balans to'ldirish", "statistics",       style="default"),
+            btn("👤 Profil",            "my_orders",        style="default"),
         ],
-        [InlineKeyboardButton(text="ℹ️ Yordam",            callback_data="help")],
+        [btn("ℹ️ Yordam",              "help",             style="default")],
     ])
     return keyboard
 
