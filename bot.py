@@ -60,9 +60,8 @@ def get_star_price() -> int:
         return 245
 
 def is_working_hours():
-    """Проверка рабочего времени 09:00–22:00 по Ташкенту"""
-    now = datetime.now(UZ_TZ)
-    return 9 <= now.hour < 22
+    """Временно отключено для тестирования"""
+    return True
 
 
 
@@ -3466,9 +3465,9 @@ async def set_bot_commands():
 async def main():
     database.init_db()
     await set_bot_commands()
-    # Регистрируем middleware рабочего времени
-    dp.message.middleware(WorkingHoursMiddleware())
-    dp.callback_query.middleware(WorkingHoursMiddleware())
+    # Middleware рабочего времени временно отключён
+    # dp.message.middleware(WorkingHoursMiddleware())
+    # dp.callback_query.middleware(WorkingHoursMiddleware())
     print("🚀 Бот Star_payuz zapущен!")
     await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot, skip_updates=True)

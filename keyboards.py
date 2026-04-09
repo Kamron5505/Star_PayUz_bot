@@ -80,7 +80,7 @@ def admin_menu():
             [KeyboardButton(text="📤 Отзыв юбориш"), KeyboardButto@ismoil_grn(text="📢 Рассылка")],
             [KeyboardButton(text="➕ Товар қўшиш"), KeyboardButton(text="📦 Товарлар рўйхати")],
             [KeyboardButton(text="✏️ Нарх ўзгартириш"), KeyboardButton(text="📢 Канал созлаш")],
-            [KeyboardButton(text="⭐ Звезда нархи"), KeyboardButton(text="◀️ Выход")]
+            [KeyboardButton(text="2⭐ Звезда нархи"), KeyboardButton(text="◀️ Выход")]
         ],
         resize_keyboard=True
     )
