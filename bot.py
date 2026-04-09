@@ -3,9 +3,8 @@ import asyncio
 import logging
 import sqlite3
 from aiogram import Bot, Dispatcher, types, F
-from aiogram.filters import Command
+from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
-from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile
 
@@ -3117,13 +3116,14 @@ async def cmd_rules(message: types.Message):
     
     await message.answer(rules_text, parse_mode="HTML", reply_markup=keyboards.back_to_menu(lang))
 
-@dp.message(Command("admin"))
+
+@dp.message(Command("admin"), StateFilter("*"))
 async def cmd_admin(message: types.Message, state: FSMContext):
+    await state.clear()
     if message.from_user.id not in config.ADMIN_IDS:
         await message.answer("❌ У вас нет доступа к админ панели!")
         return
 
-    await state.clear()
     await message.answer(
         "🔐 <b>Админ панель Star_payuz</b>\n\n"
         "Выберите действие:",
