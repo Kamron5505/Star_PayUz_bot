@@ -27,20 +27,20 @@ def main_menu(lang="uz"):
         return InlineKeyboardButton(**data)
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [btn("⭐️ Stars olish",         "category_stars",   style="success", emoji_id="5469641199348363998")],
+        [btn("Stars olish",         "category_stars",   style="success", emoji_id="5936259309812846957")],
         [
-            btn("💎 Premium olish",     "category_premium", style="primary", emoji_id="5368766152870742501"),
-            btn("🎁 Gift olish",        "category_gifts",   style="primary", emoji_id="5199749070830197566"),
+            btn("Premium olish",    "category_premium", style="primary", emoji_id="5276130429919847610"),
+            btn("Gift olish",       "category_gifts",   style="primary", emoji_id="5199749070830197566"),
         ],
         [
-            btn("⚡️ Boost",             "category_boost",   style="default"),
-            btn("🎮 Robux",             "category_robux",   style="default"),
+            btn("Boost",            "category_boost",   style="default", emoji_id="5460991276948143687"),
+            btn("Robux",            "category_robux",   style="default", emoji_id="5456658208997267458"),
         ],
         [
-            btn("💳 Balans to'ldirish", "statistics",       style="default"),
-            btn("👤 Profil",            "my_orders",        style="default"),
+            btn("Balans to'ldirish","statistics",       style="default", emoji_id="5276461636322877553"),
+            btn("Profil",           "my_orders",        style="default", emoji_id="6035084557378654059"),
         ],
-        [btn("ℹ️ Yordam",              "help",             style="default")],
+        [btn("Yordam",             "help",             style="default", emoji_id="5327794604408328596")],
     ])
     return keyboard
 
