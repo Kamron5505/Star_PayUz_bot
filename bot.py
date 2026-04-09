@@ -613,9 +613,9 @@ async def username_received(message: types.Message, state: FSMContext):
             keyboard_buttons.append([btn("Orqaga", "back_to_menu", style="default", emoji_id="5258236805890710909")])
 
             text = (
-                f'<tg-emoji emoji-id="5807791714093502248">⭐️</tg-emoji> <b>Stars xarid qilish</b>\n'
+                f'<tg-emoji emoji-id="5807791714093502248">⭐️</tg-emoji> <b>Stars xarid qilish</b>\n\n'
                 f'<tg-emoji emoji-id="6035084557378654059">👤</tg-emoji> Qabul qiluvchi: @{username}\n'
-                f'<tg-emoji emoji-id="5258204546391351475">💰</tg-emoji> 1 Stars = {star_price} uzs\n'
+                f'<tg-emoji emoji-id="5936259309812846957">💰</tg-emoji> 1 Stars = {star_price} uzs\n\n'
                 f'<tg-emoji emoji-id="5258134813302332906">📦</tg-emoji> Paketni tanlang:'
             )
             await message.answer(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard_buttons), parse_mode="HTML")
@@ -1944,7 +1944,7 @@ async def show_stars_menu(callback: types.CallbackQuery, products, lang, state: 
 
     text = (
         f'<tg-emoji emoji-id="5807791714093502248">⭐️</tg-emoji> <b>Stars xarid qilish</b>\n\n'
-        f'<tg-emoji emoji-id="5231102735817918643">🔎</tg-emoji> Stars yuborilishi kerak bo\'lgan foydalanuvchi username\'ini kiriting:\n'
+        f'<tg-emoji emoji-id="5330184285557113961">🔎</tg-emoji> Stars yuborilishi kerak bo\'lgan foydalanuvchi username\'ini kiriting:\n'
         f'<tg-emoji emoji-id="5231102735817918643">👇</tg-emoji> Misol: @admin'
     )
 
@@ -2000,9 +2000,9 @@ async def stars_for_me(callback: types.CallbackQuery, state: FSMContext):
     keyboard_buttons.append([btn("Orqaga", "back_to_menu", style="default", emoji_id="5258236805890710909")])
 
     text = (
-        f'<tg-emoji emoji-id="5807791714093502248">⭐️</tg-emoji> <b>Stars xarid qilish</b>\n'
+        f'<tg-emoji emoji-id="5807791714093502248">⭐️</tg-emoji> <b>Stars xarid qilish</b>\n\n'
         f'<tg-emoji emoji-id="6035084557378654059">👤</tg-emoji> Qabul qiluvchi: @{username}\n'
-        f'<tg-emoji emoji-id="5258204546391351475">💰</tg-emoji> 1 Stars = {star_price} uzs\n'
+        f'<tg-emoji emoji-id="5936259309812846957">💰</tg-emoji> 1 Stars = {star_price} uzs\n\n'
         f'<tg-emoji emoji-id="5258134813302332906">📦</tg-emoji> Paketni tanlang:'
     )
     await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard_buttons), parse_mode="HTML")
