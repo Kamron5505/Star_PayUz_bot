@@ -609,7 +609,7 @@ async def username_received(message: types.Message, state: FSMContext):
                 match = re.search(r'(\d+)', name_uz or "")
                 qty = int(match.group(1)) if match else 0
                 actual = qty * star_price if qty else p_price
-                keyboard_buttons.append([btn(f"⭐ {qty} Stars — {actual:,} UZS", f"stars_pkg_{pid}_{qty}")])
+                keyboard_buttons.append([btn(f"{qty} Stars — {actual:,} UZS", f"stars_pkg_{pid}_{qty}", emoji_id="5936259309812846957")])
             keyboard_buttons.append([btn("Orqaga", "back_to_menu", style="default", emoji_id="5258236805890710909")])
 
             text = (
@@ -1996,7 +1996,7 @@ async def stars_for_me(callback: types.CallbackQuery, state: FSMContext):
         match = re.search(r'(\d+)', name_uz or "")
         qty = int(match.group(1)) if match else 0
         actual = qty * star_price if qty else p_price
-        keyboard_buttons.append([btn(f"⭐ {qty} Stars — {actual:,} UZS", f"stars_pkg_{pid}_{qty}")])
+        keyboard_buttons.append([btn(f"{qty} Stars — {actual:,} UZS", f"stars_pkg_{pid}_{qty}", emoji_id="5936259309812846957")])
     keyboard_buttons.append([btn("Orqaga", "back_to_menu", style="default", emoji_id="5258236805890710909")])
 
     text = (
