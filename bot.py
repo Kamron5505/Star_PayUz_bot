@@ -1346,19 +1346,17 @@ async def stars_count_received(message: types.Message, state: FSMContext):
     
     if lang == "uz":
         text = (
-            f"<tg-emoji emoji-id=\"4965219701572503640\">💰</tg-emoji> <b>1 star narxi: {get_star_price()} so'm</b>\n"
-            f"<tg-emoji emoji-id=\"4920593664222168414\">🌟</tg-emoji> <b>{stars_count} stars = {total_price:,} so'm bo'ladi</b>\n\n"
-            f"<tg-emoji emoji-id=\"5373012449597335010\">👤</tg-emoji> <b>Qaysi profilga olasiz? Username yozing...</b>\n"
-            f"<tg-emoji emoji-id=\"5458382591121964689\">✍️</tg-emoji> <b>Format: @username yoki username</b>\n\n"
-            f"<tg-emoji emoji-id=\"5461137215641895106\">⚠️</tg-emoji> <b>Muhim: Stars shu akkauntga yuboriladi</b>"
+            f'<tg-emoji emoji-id="5807791714093502248">⭐️</tg-emoji> <b>Stars xarid qilish</b>\n'
+            f"<b>{stars_count} stars = {total_price:,} so'm</b>\n\n"
+            f'<tg-emoji emoji-id="5231102735817918643">👇</tg-emoji> <b>Stars yuborilishi kerak bo\'lgan foydalanuvchi username\'ini kiriting:</b>\n'
+            f"Misol: @sizdaemas"
         )
     else:
         text = (
-            f"<tg-emoji emoji-id=\"4965219701572503640\">💰</tg-emoji> <b>Цена 1 star: {get_star_price()} сум</b>\n"
-            f"<tg-emoji emoji-id=\"4920593664222168414\">🌟</tg-emoji> <b>{stars_count} stars = {total_price:,} сум</b>\n\n"
-            f"<tg-emoji emoji-id=\"5373012449597335010\">👤</tg-emoji> <b>На какой профиль? Напишите username...</b>\n"
-            f"<tg-emoji emoji-id=\"5458382591121964689\">✍️</tg-emoji> <b>Формат: @username или username</b>\n\n"
-            f"<tg-emoji emoji-id=\"5461137215641895106\">⚠️</tg-emoji> <b>Важно: Stars будет отправлен на этот аккаунт</b>"
+            f'<tg-emoji emoji-id="5807791714093502248">⭐️</tg-emoji> <b>Stars xarid qilish</b>\n'
+            f"<b>{stars_count} stars = {total_price:,} so'm</b>\n\n"
+            f'<tg-emoji emoji-id="5231102735817918643">👇</tg-emoji> <b>Stars yuborilishi kerak bo\'lgan foydalanuvchi username\'ini kiriting:</b>\n'
+            f"Misol: @sizdaemas"
         )
     
     await message.answer(text, parse_mode="HTML")
@@ -1943,27 +1941,18 @@ async def show_stars_menu(callback: types.CallbackQuery, products, lang):
 
     star_price = get_star_price()
 
-    if lang == "uz":
-        text = (
-            "<tg-emoji emoji-id=\"5951810621887484519\">⭐️</tg-emoji> <b>Telegram Stars</b>\n\n"
-            f"<code>1 star = {star_price} so'm\n"
-            "Min: 50 | Max: 1000000</code>\n\n"
-            "<tg-emoji emoji-id=\"6269085886177087845\">➡️</tg-emoji> Tanlang:"
-        )
-    else:
-        text = (
-            "<tg-emoji emoji-id=\"5951810621887484519\">⭐️</tg-emoji> <b>Telegram Stars</b>\n\n"
-            f"<code>1 star = {star_price} сум\n"
-            "Мин: 50 | Макс: 1000000</code>\n\n"
-            "<tg-emoji emoji-id=\"6269085886177087845\">➡️</tg-emoji> Выберите:"
-        )
+    text = (
+        f'<tg-emoji emoji-id="5807791714093502248">⭐️</tg-emoji> <b>Stars xarid qilish</b>\n\n'
+        f"<code>1 star = {star_price} so'm\n"
+        "Min: 50 | Max: 1000000</code>\n\n"
+        '<tg-emoji emoji-id="6269085886177087845">➡️</tg-emoji> Tanlang:'
+    )
 
     import re
     keyboard_buttons = []
     for product in products:
         product_id, name_uz, name_ru, desc_uz, desc_ru, price = product
         name = name_uz if lang == "uz" else name_ru
-        # Извлекаем количество звёзд из названия
         match = re.search(r'(\d+)', name_uz or "")
         if match:
             qty = int(match.group(1))
@@ -1984,12 +1973,7 @@ async def show_stars_menu(callback: types.CallbackQuery, products, lang):
     except:
         pass
 
-    import os
-    if hasattr(config, 'STARS_PHOTO') and os.path.exists(config.STARS_PHOTO):
-        photo = types.FSInputFile(config.STARS_PHOTO)
-        await bot.send_photo(callback.from_user.id, photo=photo, caption=text, reply_markup=keyboard, parse_mode="HTML")
-    else:
-        await callback.message.answer(text, reply_markup=keyboard, parse_mode="HTML")
+    await callback.message.answer(text, reply_markup=keyboard, parse_mode="HTML")
 
 async def show_gifts_menu(callback: types.CallbackQuery, products, lang):
     """Показать специальное меню для Gifts с эмодзи"""
@@ -2156,17 +2140,17 @@ async def custom_stars_selected(callback: types.CallbackQuery, state: FSMContext
 
     if lang == "uz":
         text = (
-            "<tg-emoji emoji-id=\"4965219701572503640\">💰</tg-emoji> <b>Kerakli Stars miqdorini kiriting</b>\n"
-            "<tg-emoji emoji-id=\"5458382591121964689\">✍️</tg-emoji> <b>Masalan: <code>100, 250, 1000</code></b>\n"
-            f"<tg-emoji emoji-id=\"5201873447554145566\">💵</tg-emoji> <b>1 <tg-emoji emoji-id=\"5897920748101571572\">🌟</tg-emoji> = {get_star_price()} so'm</b>\n"
-            "<tg-emoji emoji-id=\"5460991276948143687\">⚡️</tg-emoji> <b>Narx avtomatik hisoblanadi va sizga ko'rsatiladi</b>"
+            f'<tg-emoji emoji-id="5807791714093502248">⭐️</tg-emoji> <b>Stars xarid qilish</b>\n\n'
+            f'<tg-emoji emoji-id="5231102735817918643">👇</tg-emoji> <b>Kerakli Stars miqdorini kiriting:</b>\n'
+            f"Masol: <code>100, 250, 1000</code>\n\n"
+            f"1 ⭐️ = {get_star_price()} so'm"
         )
     else:
         text = (
-            "<tg-emoji emoji-id=\"4965219701572503640\">💰</tg-emoji> <b>Введите нужное количество Stars</b>\n"
-            "<tg-emoji emoji-id=\"5458382591121964689\">✍️</tg-emoji> <b>Например: <code>100, 250, 1000</code></b>\n"
-            f"<tg-emoji emoji-id=\"5201873447554145566\">💵</tg-emoji> <b>1 <tg-emoji emoji-id=\"5897920748101571572\">🌟</tg-emoji> = {get_star_price()} сум</b>\n"
-            "<tg-emoji emoji-id=\"5460991276948143687\">⚡️</tg-emoji> <b>Цена будет автоматически рассчитана и показана вам</b>"
+            f'<tg-emoji emoji-id="5807791714093502248">⭐️</tg-emoji> <b>Stars xarid qilish</b>\n\n'
+            f'<tg-emoji emoji-id="5231102735817918643">👇</tg-emoji> <b>Kerakli Stars miqdorini kiriting:</b>\n'
+            f"Masol: <code>100, 250, 1000</code>\n\n"
+            f"1 ⭐️ = {get_star_price()} so'm"
         )
 
     try:
@@ -2235,21 +2219,17 @@ async def product_selected(callback: types.CallbackQuery, state: FSMContext):
 
         if lang == "uz":
             text = (
-                f"<tg-emoji emoji-id=\"5417924076503062111\">💰</tg-emoji> <b>1 star narxi: {get_star_price()} so'm</b>\n"
-                f"<tg-emoji emoji-id=\"5951810621887484519\">⭐️</tg-emoji> <b>{stars_count} stars = {actual_price:,} so'm</b>\n\n"
-                f"<tg-emoji emoji-id=\"5373012449597335010\">👤</tg-emoji> <b>Qaysi profilga olasiz?</b>\n"
-                f"Username yozing...\n"
-                f"<tg-emoji emoji-id=\"5350427505805238170\">✍️</tg-emoji> <b>Format: @username</b>\n\n"
-                f"<tg-emoji emoji-id=\"5461137215641895106\">⚠️</tg-emoji> <b>Stars shu akkauntga yuboriladi</b>"
+                f'<tg-emoji emoji-id="5807791714093502248">⭐️</tg-emoji> <b>Stars xarid qilish</b>\n'
+                f"<b>{stars_count} stars = {actual_price:,} so'm</b>\n\n"
+                f'<tg-emoji emoji-id="5231102735817918643">👇</tg-emoji> <b>Stars yuborilishi kerak bo\'lgan foydalanuvchi username\'ini kiriting:</b>\n'
+                f"Misol: @sizdaemas"
             )
         else:
             text = (
-                f"<tg-emoji emoji-id=\"5417924076503062111\">💰</tg-emoji> <b>Цена 1 star: {get_star_price()} сум</b>\n"
-                f"<tg-emoji emoji-id=\"5951810621887484519\">⭐️</tg-emoji> <b>{stars_count} stars = {actual_price:,} сум</b>\n\n"
-                f"<tg-emoji emoji-id=\"5373012449597335010\">👤</tg-emoji> <b>На какой профиль?</b>\n"
-                f"Напишите username...\n"
-                f"<tg-emoji emoji-id=\"5350427505805238170\">✍️</tg-emoji> <b>Формат: @username</b>\n\n"
-                f"<tg-emoji emoji-id=\"5461137215641895106\">⚠️</tg-emoji> <b>Stars на этот аккаунт</b>"
+                f'<tg-emoji emoji-id="5807791714093502248">⭐️</tg-emoji> <b>Stars xarid qilish</b>\n'
+                f"<b>{stars_count} stars = {actual_price:,} so'm</b>\n\n"
+                f'<tg-emoji emoji-id="5231102735817918643">👇</tg-emoji> <b>Stars yuborilishi kerak bo\'lgan foydalanuvchi username\'ini kiriting:</b>\n'
+                f"Misol: @sizdaemas"
             )
 
         try:
