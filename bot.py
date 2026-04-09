@@ -1775,7 +1775,7 @@ async def back_to_menu_handler(callback: types.CallbackQuery):
     await callback.answer()
 
 @dp.callback_query(F.data.startswith("category_"))
-async def category_selected(callback: types.CallbackQuery):
+async def category_selected(callback: types.CallbackQuery, state: FSMContext):
     """Выбор категории товаров"""
     category = callback.data.replace("category_", "")
     lang = database.get_user_language(callback.from_user.id)
