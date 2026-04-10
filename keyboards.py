@@ -77,7 +77,7 @@ def admin_menu():
         keyboard=[
             [KeyboardButton(text="📊 Статистика"), KeyboardButton(text="📝 Заказы")],
             [KeyboardButton(text="🗑 Удалить заказы"), KeyboardButton(text="📣 Опубликовать заказ")],
-            [KeyboardButton(text="📤 Отзыв юбориш"), KeyboardButto@ismoil_grn(text="📢 Рассылка")],
+            [KeyboardButton(text="📤 Отзыв юбориш"), KeyboardButton(text="📢 Рассылка")],
             [KeyboardButton(text="➕ Товар қўшиш"), KeyboardButton(text="📦 Товарлар рўйхати")],
             [KeyboardButton(text="✏️ Нарх ўзгартириш"), KeyboardButton(text="📢 Канал созлаш")],
             [KeyboardButton(text="2⭐ Звезда нархи"), KeyboardButton(text="◀️ Выход")]
