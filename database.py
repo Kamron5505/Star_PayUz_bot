@@ -90,7 +90,7 @@ def init_db():
         )
     ''')
     # Дефолтная цена звезды если ещё не установлена
-    cursor.execute('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)', ('star_price', '245'))
+    cursor.execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ('star_price', '230'))
 
     conn.commit()
     conn.close()
