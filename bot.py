@@ -12,6 +12,8 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, FSInputFil
 import config
 import database
 import keyboards
+import api_client
+from topup_handler import register_topup_handlers
 from translations import get_text, get_text_simple
 from premium_messages import (
     get_premium_welcome,
@@ -3508,6 +3510,7 @@ async def set_bot_commands():
 async def main():
     database.init_db()
     await set_bot_commands()
+    register_topup_handlers(dp)
     # Middleware рабочего времени временно отключён
     # dp.message.middleware(WorkingHoursMiddleware())
     # dp.callback_query.middleware(WorkingHoursMiddleware())

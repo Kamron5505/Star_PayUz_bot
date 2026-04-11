@@ -37,7 +37,7 @@ def main_menu(lang="uz"):
             btn("Robux",            "category_robux",   style="default", emoji_id="5456658208997267458"),
         ],
         [
-            btn("Balans to'ldirish","statistics",       style="default", emoji_id="5276461636322877553"),
+            btn("Balans to'ldirish","topup_balance",     style="default", emoji_id="5276461636322877553"),
             btn("Profil",           "my_orders",        style="default", emoji_id="6035084557378654059"),
         ],
         [btn("Yordam",             "help",             style="default", emoji_id="5327794604408328596")],
